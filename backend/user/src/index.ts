@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
+import connectRedis from "./config/redis.js";
+import userRoutes from "./routes/user.js";
+import { connectRabbitMQ } from "./config/rabbitmq.js";
 
 dotenv.config();
 
@@ -13,13 +16,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 connectDB();
+connectRedis();
+connectRabbitMQ();
+
+// routes
+app.use("api/v1", userRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to chatapp !");
 });
 
 const port = process.env.PORT || 5000;
-
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

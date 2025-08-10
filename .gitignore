@@ -1,15 +1,8 @@
-# node_modules
+# Dependencies
+**/node_modules/
 
-node_modules/
-frontend/node_modules/
-backend/chat/node_modules/
-backend/mail/node_modules/
-backend/user/node_modules/
+# Env files
+**/.env
 
-# env files
-frontend/.env
-backend/.env
-
-dist/
-backend/**/dist/
-frontend/dist/
+# Build output
+**/dist/
