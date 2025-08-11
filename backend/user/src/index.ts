@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
-import connectRedis from "./config/redis.js";
+import { connectRedis } from "./config/redis.js";
 import userRoutes from "./routes/user.js";
 import { connectRabbitMQ } from "./config/rabbitmq.js";
 
@@ -20,7 +20,7 @@ connectRedis();
 connectRabbitMQ();
 
 // routes
-app.use("api/v1", userRoutes);
+app.use("/api/v1", userRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to chatapp !");
