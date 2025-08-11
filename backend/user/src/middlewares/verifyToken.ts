@@ -10,6 +10,10 @@ declare module "express" {
   }
 }
 
+interface JwtPayload {
+  id: string;
+}
+
 export const verifyToken = async (
   req: Request,
   res: Response,
@@ -25,9 +29,7 @@ export const verifyToken = async (
     }
 
     // Verify token and assert type
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: string;
-    };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
