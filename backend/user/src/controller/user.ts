@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import User from "../model/User.js";
+import User, { type IUser } from "../model/User.js";
 import bcrypt from "bcryptjs";
 import { getRedisClient } from "../config/redis.js";
 import { publishToQueue } from "../config/rabbitmq.js";
@@ -23,6 +23,10 @@ interface LoginBody {
 interface UpdatePasswordBody {
   currentPassword: string;
   newPassword: string;
+}
+
+interface userBody extends Request {
+  user?: IUser;
 }
 
 export const Register = async (
@@ -74,7 +78,7 @@ export const Login = async (
       return res.status(404).json({ message: "User not found" });
     }
 
-    // If OTP is NOT provided → Step 1: Password check & send OTP
+    // Step 1: Password check & send OTP
     if (!otp) {
       const isMatch = await bcrypt.compare(password!, user.password);
       if (!isMatch) {
@@ -111,7 +115,7 @@ export const Login = async (
       });
     }
 
-    // If OTP is provided → Step 2: Verify OTP & login
+    // Step 2: Verify OTP & login
     const redisClient = getRedisClient();
     const otpKey = `otp:${email}`;
     const storedOtp = await redisClient.get(otpKey);
@@ -120,7 +124,6 @@ export const Login = async (
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // OTP is valid → remove it from Redis
     await redisClient.del(otpKey);
 
     // Generate JWT token
@@ -135,6 +138,9 @@ export const Login = async (
       sameSite: "strict",
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
+
+    // Send token in Authorization header as well (for service-to-service calls)
+    res.setHeader("Authorization", `Bearer ${token}`);
 
     return res.status(200).json({
       message: "Login successful",
@@ -193,7 +199,7 @@ export const Logout = (req: Request, res: Response): Response => {
   return res.status(200).json({ message: "Logged out successfully" });
 };
 
-export const myProfile = (req: Request, res: Response) => {
+export const myProfile = (req: userBody, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized" });

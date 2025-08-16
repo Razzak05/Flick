@@ -1,19 +1,24 @@
 import jwt, { type JwtPayload } from "jsonwebtoken";
-import User from "../model/User.js";
+import axios from "axios";
 import type { Request, Response, NextFunction } from "express";
-import type { IUser } from "../model/User.js";
 
-export interface AuthenticateRequest extends Request {
+interface IUser extends Document {
+  _id: string;
+  name: string;
+  email: string;
+}
+
+export interface AuthenticatedRequest extends Request {
   user?: IUser | null;
 }
 
 export const verifyToken = async (
-  req: AuthenticateRequest,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    // Look for token in cookie OR Authorization header
+    // Get token from cookie OR Authorization header
     let token = req.cookies?.accessToken;
     if (!token && req.headers.authorization?.startsWith("Bearer ")) {
       token = req.headers.authorization.split(" ")[1];
@@ -25,12 +30,16 @@ export const verifyToken = async (
         .json({ message: "Unauthorized - No token provided" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    // Verify locally so you know it’s at least correctly signed
+    jwt.verify(token, process.env.JWT_SECRET!);
 
-    const user = await User.findById(decoded.id).select("-password");
-    if (!user) {
-      return res.status(401).json({ message: "Unauthorized - User not found" });
-    }
+    // Call User Service to validate user existence
+    const { data: user } = await axios.get(
+      `${process.env.USER_SERVICE_URL}/me`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
 
     req.user = user;
     next();
