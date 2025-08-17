@@ -69,7 +69,7 @@ export const getAllChats = async (req: AuthenticatedRequest, res: Response) => {
 
         try {
           const { data } = await axios.get(
-            `${process.env.USER_SERVICE_URL}/api/v1/user/${otherUserId}`
+            `${process.env.USER_SERVICE_URL}/user/${otherUserId}`
           );
 
           return {
@@ -104,4 +104,108 @@ export const getAllChats = async (req: AuthenticatedRequest, res: Response) => {
       message: "Server error while fetching chats",
     });
   }
+};
+
+export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const senderId = req.user?._id;
+    const { chatId, text } = req.body;
+    const imageFile = req.file;
+
+    if (!senderId) {
+      res.status(401).json({
+        message: "unauthorized",
+      });
+      return;
+    }
+
+    if (!chatId) {
+      res.status(400).json({
+        message: "ChatId is required",
+      });
+      return;
+    }
+
+    if (!text && !imageFile) {
+      res.status(400).json({
+        message: "Either text or image is required",
+      });
+    }
+
+    const chat = await Chat.findById(chatId);
+
+    if (!chat) {
+      res.status(404).json({
+        message: "Chat not found",
+      });
+      return;
+    }
+
+    const isUserInChat = chat.users.some(
+      (userId) => userId.toString() === senderId.toString()
+    );
+
+    if (!isUserInChat) {
+      res.status(403).json({
+        message: "You are not a participant of this chat",
+      });
+      return;
+    }
+
+    const otherUserId = chat.users.find(
+      (userId) => userId.toString() !== senderId.toString()
+    );
+
+    if (!otherUserId) {
+      res.status(401).json({
+        message: "no other user",
+      });
+      return;
+    }
+
+    // socket setup
+
+    let messageData: any = {
+      chatId: chatId,
+      sender: senderId,
+      seen: false,
+      seenAt: undefined,
+    };
+
+    if (imageFile) {
+      messageData.image = {
+        url: imageFile.path,
+        publicId: imageFile.filename,
+      };
+      messageData.messageType = "image";
+      messageData.text = text || "";
+    } else {
+      messageData.text = text;
+      messageData.messageType = "text";
+    }
+
+    const message = new Message(messageData);
+    const savedMessage = await message.save();
+
+    const latestMessageText = imageFile ? "📷" : text;
+
+    await Chat.findByIdAndUpdate(
+      chatId,
+      {
+        latestMessage: {
+          text: latestMessageText,
+          sender: senderId,
+        },
+        updatedAt: new Date(),
+      },
+      { new: true }
+    );
+
+    //emit to sockets
+
+    res.status(201).json({
+      message: savedMessage,
+      sender: senderId,
+    });
+  } catch (error) {}
 };
