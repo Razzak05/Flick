@@ -207,5 +207,103 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       message: savedMessage,
       sender: senderId,
     });
+  } catch (error) {
+    console.error("Error sending message:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while sending message",
+    });
+  }
+};
+
+export const getMessagesByChat = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const userId = req.user?._id;
+    const { chatId } = req.params;
+
+    if (!userId) {
+      res.status(400).json({
+        message: "Unauthorized",
+      });
+      return;
+    }
+
+    if (!chatId) {
+      res.status(400).json({
+        message: "ChatId Required",
+      });
+      return;
+    }
+
+    const chat = await Chat.findById(chatId);
+
+    if (!chat) {
+      res.status(404).json({
+        message: "Chat not found",
+      });
+    }
+
+    const isUserInChat = chat.users.some(
+      (userId) => userId.toString() === userId.toString()
+    );
+
+    if (!isUserInChat) {
+      res.status(403).json({
+        message: "You are not a participant of this chat",
+      });
+      return;
+    }
+
+    const messagesToMarkSeen = await Message.find({
+      chatId: chatId,
+      sender: { $ne: userId },
+      seen: false,
+    });
+
+    await Message.updateMany(
+      {
+        chatId: chatId,
+        sender: { $ne: userId },
+        seen: false,
+      },
+      {
+        seen: true,
+        seenAt: new Date(),
+      }
+    );
+
+    const messages = await Message.find({ chatId }).sort({
+      createdAt: 1,
+    });
+
+    const otherUserId = chat?.users.find((id) => id !== userId);
+    try {
+      const { data } = await axios.get(
+        `${process.env.USER_SERVICE}/api/v1/user/${otherUserId}`
+      );
+
+      if (!otherUserId) {
+        res.status(400).json({
+          message: "No other user",
+        });
+        return;
+      }
+
+      //socket work
+
+      res.json({
+        messages,
+        user: data,
+      });
+    } catch (error) {
+      console.log(error);
+      res.json({
+        messages,
+        user: { _id: otherUserId, name: "Unknown User" },
+      });
+    }
   } catch (error) {}
 };
