@@ -14,9 +14,12 @@ interface RegisterBody {
   password: string;
 }
 
-interface LoginBody {
+interface RequestOtp {
   email: string;
   password: string;
+}
+
+interface VerifyOtp {
   otp: string;
 }
 
@@ -66,92 +69,89 @@ export const Register = async (
   }
 };
 
-export const Login = async (
+export const requestOtp = async (
   req: Request,
   res: Response
 ): Promise<Response | void> => {
   try {
-    const { email, password, otp }: LoginBody = req.body;
+    const { email, password }: RequestOtp = req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Step 1: Password check & send OTP
-    if (!otp) {
-      const isMatch = await bcrypt.compare(password!, user.password);
-      if (!isMatch) {
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
+    const isMatch = await bcrypt.compare(password!, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
-      const redisClient = getRedisClient();
-      const rateLimitKey = `otp:ratelimit:${email}`;
-      const rateLimit = await redisClient.get(rateLimitKey);
+    const redisClient = getRedisClient();
+    const rateLimitKey = `otp:ratelimit:${email}`;
+    const rateLimit = await redisClient.get(rateLimitKey);
 
-      if (rateLimit) {
-        return res.status(429).json({
-          message: "Too many requests. Please wait before requesting new OTP",
-        });
-      }
-
-      const generatedOtp = Math.floor(
-        100000 + Math.random() * 900000
-      ).toString();
-      const otpKey = `otp:${email}`;
-      await redisClient.set(otpKey, generatedOtp, { EX: 300 }); // 5 min expiry
-      await redisClient.set(rateLimitKey, "true", { EX: 60 }); // 1 min limit
-
-      const message = {
-        to: email,
-        subject: "Your OTP Code",
-        body: `Your OTP is ${generatedOtp}. It's valid for 5 minutes.`,
-      };
-
-      await publishToQueue("send-otp", message);
-
-      return res.status(200).json({
-        message: "OTP sent to your email. Please verify to continue.",
+    if (rateLimit) {
+      return res.status(429).json({
+        message: "Too many requests. Please wait before requesting new OTP",
       });
     }
 
-    // Step 2: Verify OTP & login
-    const redisClient = getRedisClient();
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpKey = `otp:${email}`;
-    const storedOtp = await redisClient.get(otpKey);
+    await redisClient.set(otpKey, generatedOtp, { EX: 300 }); // 5 min expiry
+    await redisClient.set(rateLimitKey, "true", { EX: 60 }); // 1 min limit
+
+    const message = {
+      to: email,
+      subject: "Your OTP Code",
+      body: `Your OTP is ${generatedOtp}. It's valid for 5 minutes.`,
+    };
+
+    await publishToQueue("send-otp", message);
+
+    return res.status(200).json({
+      message: "OTP sent to your email. Please verify to continue.",
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const verifyOtp = async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = req.body;
+
+    const redisClient = getRedisClient();
+    const storedOtp = await redisClient.get(`otp:${email}`);
 
     if (!storedOtp || storedOtp !== otp) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    await redisClient.del(otpKey);
+    await redisClient.del(`otp:${email}`);
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, {
       expiresIn: "1d",
     });
 
-    // Set HTTP-only cookie
     res.cookie("accessToken", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
-    // Send token in Authorization header as well (for service-to-service calls)
     res.setHeader("Authorization", `Bearer ${token}`);
 
     return res.status(200).json({
       message: "Login successful",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-      },
+      user: { id: user._id, name: user.name, email: user.email },
     });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("Verify OTP error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
