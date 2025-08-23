@@ -20,6 +20,7 @@ interface RequestOtp {
 }
 
 interface VerifyOtp {
+  email: string;
   otp: string;
 }
 
@@ -120,12 +121,14 @@ export const requestOtp = async (
 
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp }: VerifyOtp = req.body;
 
     const redisClient = getRedisClient();
     const storedOtp = await redisClient.get(`otp:${email}`);
 
-    if (!storedOtp || storedOtp !== otp) {
+    console.log("storedOtp:", storedOtp, "incomingOtp:", otp);
+
+    if (!storedOtp || storedOtp.trim() !== String(otp).trim()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 

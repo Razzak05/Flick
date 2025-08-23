@@ -5,6 +5,7 @@ import React, { ChangeEvent, useState } from "react";
 import OtpInput from "../components/OtpInput";
 import { useRequestOtp, useVerifyOtp } from "../hooks/useAuth";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 interface FormData {
   email: string;
@@ -18,6 +19,7 @@ const Login = () => {
     password: "",
     otp: "",
   });
+  const router = useRouter();
   const [otpSent, setOtpSent] = useState<boolean>(false);
 
   const requestOtp = useRequestOtp();
@@ -56,7 +58,8 @@ const Login = () => {
       { email: formData.email, otp: formData.otp },
       {
         onSuccess: () => {
-          toast.success("Login successful !");
+          toast.success("Login successful!");
+          router.push("/chat");
         },
       }
     );
@@ -75,7 +78,7 @@ const Login = () => {
                 Welcome to Flick
               </h1>
               <p className="text-gray-300 text-lg">
-                Start Your Journey, Enter your email !
+                Start Your Journey, Enter your email!
               </p>
             </div>
 
