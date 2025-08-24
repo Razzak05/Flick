@@ -29,7 +29,8 @@ interface UpdatePasswordBody {
   newPassword: string;
 }
 
-interface userBody extends Request {
+// Extend Request to include user property
+interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 
@@ -82,7 +83,7 @@ export const requestOtp = async (
       return res.status(404).json({ message: "User not found" });
     }
 
-    const isMatch = await bcrypt.compare(password!, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
@@ -160,14 +161,14 @@ export const verifyOtp = async (req: Request, res: Response) => {
 };
 
 export const UpdatePassword = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<Response | void> => {
   try {
     const { currentPassword, newPassword }: UpdatePasswordBody = req.body;
 
     // userId from middleware (req.user injected after JWT verification)
-    const userId = (req as any).user?.id;
+    const userId = req.user?._id;
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -202,12 +203,20 @@ export const Logout = (req: Request, res: Response): Response => {
   return res.status(200).json({ message: "Logged out successfully" });
 };
 
-export const myProfile = (req: userBody, res: Response) => {
+export const myProfile = (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    return res.json(req.user);
+
+    // Return user data without password
+    const userData = {
+      id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+    };
+
+    return res.json(userData);
   } catch (error) {
     console.error("Error fetching profile:", error);
     return res.status(500).json({ message: "Internal server error" });

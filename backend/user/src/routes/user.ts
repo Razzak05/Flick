@@ -10,13 +10,24 @@ import {
   verifyOtp,
 } from "../controller/user.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
+import {
+  validateRegister,
+  validateRequestOtp,
+  validateUpdatePassword,
+  validateVerifyOtp,
+} from "../middlewares/validationMiddleware.js";
 
 const router = express.Router();
 
-router.post("/register", Register);
-router.post("/request-otp", requestOtp);
-router.post("/verify-otp", verifyOtp);
-router.put("/update-password", verifyToken, UpdatePassword);
+router.post("/register", validateRegister, Register);
+router.post("/request-otp", validateRequestOtp, requestOtp);
+router.post("/verify-otp", validateVerifyOtp, verifyOtp);
+router.put(
+  "/update-password",
+  validateUpdatePassword,
+  verifyToken,
+  UpdatePassword
+);
 router.post("/logout", verifyToken, Logout);
 router.get("/me", verifyToken, myProfile);
 router.get("/user/all", getAllUsers);
