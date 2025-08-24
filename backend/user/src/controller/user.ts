@@ -150,9 +150,11 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     res.setHeader("Authorization", `Bearer ${token}`);
 
+    const { password: pwd, ...userData } = user.toObject();
+
     return res.status(200).json({
       message: "Login successful",
-      user: { id: user._id, name: user.name, email: user.email },
+      user: userData,
     });
   } catch (error) {
     console.error("Verify OTP error:", error);

@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "../redux/slices/userSlice";
 
 // Define Zod schemas
 const loginSchema = z.object({
@@ -32,6 +34,8 @@ const Login = () => {
 
   const requestOtp = useRequestOtp();
   const verifyOtp = useVerifyOtp();
+
+  const dispatch = useDispatch();
 
   // Setup React Hook Form for login
   const {
@@ -75,7 +79,8 @@ const Login = () => {
     verifyOtp.mutate(
       { email, otp: data.otp },
       {
-        onSuccess: () => {
+        onSuccess: (response) => {
+          dispatch(loginSuccess(response?.data?.user));
           toast.success("Login successful!");
           router.push("/chat");
         },
