@@ -34,14 +34,12 @@ export const verifyToken = async (
     jwt.verify(token, process.env.JWT_SECRET!);
 
     // Call User Service to validate user existence
-    const { data: user } = await axios.get(
-      `${process.env.USER_SERVICE_URL}/me`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const { data } = await axios.get(`${process.env.USER_SERVICE_URL}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      withCredentials: true,
+    });
 
-    req.user = user;
+    req.user = data.user;
     next();
   } catch {
     return res

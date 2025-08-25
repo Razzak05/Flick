@@ -127,8 +127,6 @@ export const verifyOtp = async (req: Request, res: Response) => {
     const redisClient = getRedisClient();
     const storedOtp = await redisClient.get(`otp:${email}`);
 
-    console.log("storedOtp:", storedOtp, "incomingOtp:", otp);
-
     if (!storedOtp || storedOtp.trim() !== String(otp).trim()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
@@ -205,20 +203,20 @@ export const Logout = (req: Request, res: Response): Response => {
   return res.status(200).json({ message: "Logged out successfully" });
 };
 
-export const myProfile = (req: AuthenticatedRequest, res: Response) => {
+export const myProfile = async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Return user data without password
-    const userData = {
-      id: req.user._id,
-      name: req.user.name,
-      email: req.user.email,
-    };
+    const userId = req.user?._id;
 
-    return res.json(userData);
+    const user = await User.findById(userId);
+    const { password: pwd, ...userData } = user.toObject();
+
+    return res.json({
+      user,
+    });
   } catch (error) {
     console.error("Error fetching profile:", error);
     return res.status(500).json({ message: "Internal server error" });

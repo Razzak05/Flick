@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 import chatRoutes from "./routes/chat.js";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
@@ -9,7 +10,14 @@ connectDB();
 
 const app = express();
 
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use("/api/v1", chatRoutes);

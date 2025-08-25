@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import QueryProvider from "./providers/queryClient";
-import ReduxProviders from "./providers/reduxProvider";
+import ReactQueryProvider from "./providers/ReactQueryProvider";
+import ReactReduxProviders from "./providers/ReactReduxProvider";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -17,12 +17,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ReduxProviders>
-          <QueryProvider>
+        <ReactReduxProviders>
+          <ReactQueryProvider>
             {children}
             <Toaster position="top-right" />
-          </QueryProvider>
-        </ReduxProviders>
+          </ReactQueryProvider>
+        </ReactReduxProviders>
       </body>
     </html>
   );

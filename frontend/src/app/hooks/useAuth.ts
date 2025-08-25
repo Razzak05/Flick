@@ -1,7 +1,7 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiUser } from "../lib/apiServices";
 
 interface RequestOtpPayload {
   email: string;
@@ -17,11 +17,9 @@ interface VerifyOtpPayload {
 export const useRequestOtp = () => {
   return useMutation({
     mutationFn: async (data: RequestOtpPayload) => {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL_USER_SERVICE}/request-otp`,
-        data,
-        { withCredentials: true }
-      );
+      const res = await apiUser.post(`/request-otp`, data, {
+        withCredentials: true,
+      });
       return res.data;
     },
   });
@@ -31,12 +29,24 @@ export const useRequestOtp = () => {
 export const useVerifyOtp = () => {
   return useMutation({
     mutationFn: async (data: VerifyOtpPayload) => {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL_USER_SERVICE}/verify-otp`,
-        data,
-        { withCredentials: true }
-      );
+      const res = await apiUser.post(`/verify-otp`, data, {
+        withCredentials: true,
+      });
       return res.data;
     },
+  });
+};
+
+export const useGetAllUsers = () => {
+  const fetchAllUsers = async () => {
+    const res = await apiUser.get(`/user/all`, {
+      withCredentials: true,
+    });
+    return res.data;
+  };
+
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: fetchAllUsers,
   });
 };
