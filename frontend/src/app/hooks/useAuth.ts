@@ -32,21 +32,18 @@ export const useVerifyOtp = () => {
       const res = await apiUser.post(`/verify-otp`, data, {
         withCredentials: true,
       });
-      return res.data;
+      return res.data.user;
     },
   });
 };
 
-export const useGetAllUsers = () => {
-  const fetchAllUsers = async () => {
-    const res = await apiUser.get(`/user/all`, {
-      withCredentials: true,
-    });
-    return res.data;
-  };
-
-  return useQuery({
-    queryKey: ["users"],
-    queryFn: fetchAllUsers,
+export const useHandleLogout = () => {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiUser.post("/logout", {
+        withCredentials: true,
+      });
+      return res.data;
+    },
   });
 };

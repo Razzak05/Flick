@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
@@ -30,19 +31,15 @@ const LoginForm: React.FC<LoginFormProps> = ({ onOtpSent }) => {
   });
 
   const handleSendOtp = (data: LoginFormData) => {
-    requestOtp.mutate(
-      { email: data.email, password: data.password },
-      {
-        onSuccess: () => {
-          toast.success("OTP sent successfully!");
-          onOtpSent(data.email); // pass email up
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onError: (error: any) => {
-          toast.error(error.message || "Failed to send OTP");
-        },
-      }
-    );
+    requestOtp.mutate(data, {
+      onSuccess: () => {
+        toast.success("OTP sent successfully!");
+        onOtpSent(data.email);
+      },
+      onError: (error: any) => {
+        toast.error(error.message || "Failed to send OTP");
+      },
+    });
   };
 
   return (
@@ -77,6 +74,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onOtpSent }) => {
               </p>
             )}
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Password

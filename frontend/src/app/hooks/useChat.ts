@@ -5,12 +5,9 @@ import { apiChat } from "../lib/apiServices";
 
 export const useGetAllChats = () => {
   const fetchAllChats = async () => {
-    const res = await apiChat.get(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL_CHAT_SERVICE}/chat/all`,
-      {
-        withCredentials: true,
-      }
-    );
+    const res = await apiChat.get(`/chat/all`, {
+      withCredentials: true,
+    });
     return res.data;
   };
 

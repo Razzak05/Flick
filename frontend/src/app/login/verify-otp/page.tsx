@@ -12,6 +12,7 @@ import { useVerifyOtp } from "@/app/hooks/useAuth";
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/app/redux/slices/userSlice";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 const otpSchema = z.object({
   otp: z.string().length(6, "OTP must be exactly 6 digits"),
@@ -26,6 +27,7 @@ interface VerifyOtpProps {
 const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
   const dispatch = useDispatch();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const verifyOtp = useVerifyOtp();
 
   const {
@@ -41,19 +43,18 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
   };
 
   const handleVerifyOtp = (data: OtpFormData) => {
-    verifyOtp.mutate(
-      { email, otp: data.otp },
-      {
-        onSuccess: (response) => {
-          dispatch(loginSuccess(response?.data?.user));
-          toast.success("Login successful!");
-          router.push("/chat");
-        },
-        onError: (error: any) => {
-          toast.error(error.message || "Invalid OTP");
-        },
-      }
-    );
+    verifyOtp.mutate(data, {
+      onSuccess: (user) => {
+        dispatch(loginSuccess(user)); // <-- user is now correctly set
+        toast.success("Login successful!");
+        queryClient.invalidateQueries(["chats"]);
+        queryClient.invalidateQueries(["users"]);
+        router.push("/chat");
+      },
+      onError: (error: any) => {
+        toast.error(error.message || "Invalid OTP");
+      },
+    });
   };
 
   return (

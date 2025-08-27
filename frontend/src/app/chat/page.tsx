@@ -1,23 +1,29 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import React, { useEffect } from "react";
-import { useSelector } from "react-redux";
-import { RootState } from "../redux/store";
-import { useGetAllChats } from "../hooks/useChat";
-import { useGetAllUsers } from "../hooks/useAuth";
+import React from "react";
+import ChatSidebar from "../components/ChatSidebar";
+
+export interface Message {
+  _id: string;
+  chatId: string;
+  sender: string;
+  text?: string;
+  image?: {
+    url: string;
+    publicId: string;
+  };
+  messageType: "text" | "image";
+  seen: boolean;
+  seenAt?: string;
+  createdAt: string;
+}
 
 const ChatApp = () => {
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
-  const router = useRouter();
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/chat");
-    }
-  }, [isAuthenticated, router]);
-  useGetAllChats();
-  useGetAllUsers();
-  return <div>ChatApp</div>;
+  return (
+    <div className="min-h-screen flex bg-gray-900 text-white relative overflow-hidden">
+      <ChatSidebar />
+    </div>
+  );
 };
 
 export default ChatApp;

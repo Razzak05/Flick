@@ -11,15 +11,17 @@ import {
 } from "redux-persist";
 
 import authSlice from "./slices/userSlice";
+import chatSlice from "./slices/chatSlice";
 
 const rootReducer = combineReducers({
   auth: authSlice,
+  chat: chatSlice,
 });
 
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth"],
+  whitelist: ["auth", "chat"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
