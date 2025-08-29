@@ -43,18 +43,23 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
   };
 
   const handleVerifyOtp = (data: OtpFormData) => {
-    verifyOtp.mutate(data, {
-      onSuccess: (user) => {
-        dispatch(loginSuccess(user)); // <-- user is now correctly set
-        toast.success("Login successful!");
-        queryClient.invalidateQueries(["chats"]);
-        queryClient.invalidateQueries(["users"]);
-        router.push("/chat");
-      },
-      onError: (error: any) => {
-        toast.error(error.message || "Invalid OTP");
-      },
-    });
+    verifyOtp.mutate(
+      { email, otp: data.otp },
+      {
+        onSuccess: (user) => {
+          dispatch(loginSuccess(user));
+          toast.success("Login successful!");
+          queryClient.invalidateQueries({ queryKey: ["chats"] });
+          queryClient.invalidateQueries({ queryKey: ["users"] });
+          router.push("/chat");
+        },
+        onError: (error: any) => {
+          const message =
+            error?.response?.data?.message || error?.message || "Invalid OTP";
+          toast.error(message);
+        },
+      }
+    );
   };
 
   return (

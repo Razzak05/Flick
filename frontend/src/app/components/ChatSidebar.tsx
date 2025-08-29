@@ -12,7 +12,6 @@ import {
 } from "@/app/redux/slices/chatSlice";
 import { useHandleLogout } from "../hooks/useAuth";
 import { useGetAllUsers } from "../hooks/useUser";
-import toast from "react-hot-toast";
 
 const ChatSidebar = () => {
   const { sidebarOpen, showAllUsers } = useSelector(
@@ -45,11 +44,7 @@ const ChatSidebar = () => {
         <button
           className="text-white mb-4"
           onClick={() => {
-            logout.mutate(undefined, {
-              onSuccess: () => toast.success("Logout Successful!"),
-              onError: (error: any) =>
-                toast.error(error.message || "Logout failed!"),
-            });
+            logout.mutate();
           }}
         >
           Logout

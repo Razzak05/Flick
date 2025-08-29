@@ -1,7 +1,10 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiUser } from "../lib/apiServices";
+import { logout } from "../redux/slices/userSlice";
+import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
 
 interface RequestOtpPayload {
   email: string;
@@ -38,12 +41,20 @@ export const useVerifyOtp = () => {
 };
 
 export const useHandleLogout = () => {
+  const dispatch = useDispatch();
+
   return useMutation({
     mutationFn: async () => {
-      const res = await apiUser.post("/logout", {
-        withCredentials: true,
-      });
+      const res = await apiUser.post("/logout", {}, { withCredentials: true });
       return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Login Successful !");
+      dispatch(logout());
+      window.location.href = "/login";
+    },
+    onError: (error) => {
+      toast.error(error.message || "Logout failed!");
     },
   });
 };
