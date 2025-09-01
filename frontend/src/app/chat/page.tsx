@@ -2,6 +2,7 @@
 
 import React from "react";
 import ChatSidebar from "../components/ChatSidebar";
+import ChatInterface from "../components/ChatInterface";
 
 export interface Message {
   _id: string;
@@ -22,6 +23,7 @@ const ChatApp = () => {
   return (
     <div className="min-h-screen flex bg-gray-900 text-white relative overflow-hidden">
       <ChatSidebar />
+      <ChatInterface />
     </div>
   );
 };
