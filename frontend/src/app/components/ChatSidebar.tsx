@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// ChatSidebar.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -12,10 +11,11 @@ import {
   UserCircle,
   X,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import {
   setSidebarOpen,
-  toggleShowAllUsers,
+  setShowAllUsers,
   setSelectedUser,
   setSelectedChatId,
 } from "@/app/redux/slices/chatSlice";
@@ -23,31 +23,56 @@ import { useHandleLogout } from "../hooks/useAuth";
 import { useGetAllUsers } from "../hooks/useUser";
 import { useCreateChat, useGetAllChats } from "../hooks/useChat";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ChatSidebar = () => {
-  const { sidebarOpen, showAllUsers, selectedChatId } = useSelector(
-    (state: RootState) => state.chat
-  );
+  const { sidebarOpen, showAllUsers, selectedChatId, selectedUser } =
+    useSelector((state: RootState) => state.chat);
   const { user: loggedInUser } = useSelector((state: RootState) => state.auth);
 
   const [searchQuery, setSearchQuery] = useState("");
   const dispatch = useDispatch();
   const logout = useHandleLogout();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const createChatMutation = useCreateChat();
 
-  // React Query is the single source of truth for users & chats
-  const { data: users } = useGetAllUsers();
-  const { data: chats } = useGetAllChats();
+  // React Query for server state
+  const { data: users, isLoading: usersLoading } = useGetAllUsers();
+  const { data: chats, isLoading: chatsLoading } = useGetAllChats();
 
   const handleCreateChat = (otherUserId: string) => {
     createChatMutation.mutate(otherUserId, {
       onSuccess: (data) => {
-        dispatch(setSelectedChatId(data._id));
-        dispatch(toggleShowAllUsers());
+        const newChatId = data.chatId;
+
+        if (newChatId) {
+          dispatch(setSelectedChatId(newChatId));
+          dispatch(setSelectedUser(null));
+        }
+
+        // Invalidate and refetch chats to update the list
+        queryClient.invalidateQueries({ queryKey: ["chats"] });
+        dispatch(setShowAllUsers(false));
+      },
+      onError: (error) => {
+        console.error("Failed to create chat:", error);
       },
     });
   };
+
+  const handleChatClick = (chatId: string, user: any) => {
+    dispatch(setSelectedChatId(chatId));
+    dispatch(setSelectedUser(user));
+  };
+
+  if (usersLoading || chatsLoading) {
+    return (
+      <aside className="fixed z-50 top-0 left-0 h-screen w-80 bg-gray-900 border-r border-gray-700 flex items-center justify-center">
+        <Loader2 className="animate-spin w-8 h-8 text-blue-500" />
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -77,7 +102,7 @@ const ChatSidebar = () => {
           </div>
 
           <button
-            onClick={() => dispatch(toggleShowAllUsers())}
+            onClick={() => dispatch(setShowAllUsers(!showAllUsers))}
             className={`p-2.5 rounded-lg transition-colors ${
               showAllUsers
                 ? "bg-red-600 hover:bg-red-700 text-white"
@@ -116,24 +141,32 @@ const ChatSidebar = () => {
                 ?.filter(
                   (u: any) =>
                     u._id !== loggedInUser?._id &&
-                    u.name.toLowerCase().includes(searchQuery.toLowerCase())
+                    u.name?.toLowerCase().includes(searchQuery.toLowerCase())
                 )
-                .map((u: any) => (
-                  <button
-                    key={u._id}
-                    onClick={() => {
-                      dispatch(setSelectedUser(u));
-                      dispatch(setSelectedChatId(null));
-                      handleCreateChat(u._id);
-                    }}
-                    className="w-full flex items-center gap-3 text-left p-4 rounded-lg border border-gray-700 hover:border-gray-600 hover:bg-gray-800 transition-colors"
-                  >
-                    <UserCircle className="w-6 h-6 text-gray-300" />
-                    <span className="font-medium text-white truncate">
-                      {u.name}
-                    </span>
-                  </button>
-                ))}
+                .map((u: any) => {
+                  const isSelectedUser = selectedUser?._id === u._id;
+
+                  return (
+                    <button
+                      key={u._id}
+                      onClick={() => {
+                        dispatch(setSelectedUser(u));
+                        dispatch(setSelectedChatId(null));
+                        handleCreateChat(u._id);
+                      }}
+                      className={`w-full flex items-center gap-3 text-left p-4 rounded-lg border transition-colors ${
+                        isSelectedUser
+                          ? "bg-blue-600 border-blue-500 text-white"
+                          : "border border-gray-700 hover:border-gray-600 hover:bg-gray-800 text-gray-200"
+                      }`}
+                    >
+                      <UserCircle className="w-6 h-6 text-gray-300" />
+                      <span className="font-medium text-white truncate">
+                        {u.name}
+                      </span>
+                    </button>
+                  );
+                })}
             </div>
           </div>
         ) : chats && chats.length > 0 ? (
@@ -150,6 +183,7 @@ const ChatSidebar = () => {
                   onClick={() => {
                     dispatch(setSelectedChatId(chat.chat._id));
                     dispatch(setSelectedUser(chat.user));
+                    handleChatClick(chat.chat._id, chat.user);
                   }}
                   className={`w-full text-left p-4 rounded-lg transition-colors flex items-center gap-3 ${
                     isSelected

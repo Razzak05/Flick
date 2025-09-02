@@ -1,14 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "@/app/lib/interface";
-import { Message } from "@/app/chat/page";
 
 interface ChatState {
   selectedUser: User | null;
   selectedChatId: string | null;
   sidebarOpen: boolean;
   showAllUsers: boolean;
-  messages: Message[] | null;
   isTyping: boolean;
 }
 
@@ -17,7 +15,6 @@ const initialState: ChatState = {
   selectedChatId: null,
   sidebarOpen: false,
   showAllUsers: false,
-  messages: null,
   isTyping: false,
 };
 
@@ -33,12 +30,7 @@ const chatSlice = createSlice({
       state.selectedChatId = action.payload;
     },
 
-    // messages (keep in redux if multiple components require instant access)
-    setMessages: (state, action: PayloadAction<Message[] | null>) => {
-      state.messages = action.payload;
-    },
-
-    // sidebar toggles / explicit setters (both provided)
+    // sidebar toggles / explicit setters
     toggleSidebar: (state) => {
       state.sidebarOpen = !state.sidebarOpen;
     },
@@ -65,7 +57,6 @@ const chatSlice = createSlice({
 export const {
   setSelectedUser,
   setSelectedChatId,
-  setMessages,
   toggleSidebar,
   setSidebarOpen,
   toggleShowAllUsers,
