@@ -49,7 +49,7 @@ export const useHandleLogout = () => {
       return res.data;
     },
     onSuccess: () => {
-      toast.success("Login Successful !");
+      toast.success("Logout Successful !");
       dispatch(logout());
       window.location.href = "/login";
     },

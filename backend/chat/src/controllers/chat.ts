@@ -305,5 +305,11 @@ export const getMessagesByChat = async (
         user: { _id: otherUserId, name: "Unknown User" },
       });
     }
-  } catch (error) {}
+  } catch (error) {
+    console.error("Error fetching message:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching message",
+    });
+  }
 };

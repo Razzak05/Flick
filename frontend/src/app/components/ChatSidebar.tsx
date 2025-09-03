@@ -43,14 +43,7 @@ const ChatSidebar = () => {
 
   const handleCreateChat = (otherUserId: string) => {
     createChatMutation.mutate(otherUserId, {
-      onSuccess: (data) => {
-        const newChatId = data.chatId;
-
-        if (newChatId) {
-          dispatch(setSelectedChatId(newChatId));
-          dispatch(setSelectedUser(null));
-        }
-
+      onSuccess: () => {
         // Invalidate and refetch chats to update the list
         queryClient.invalidateQueries({ queryKey: ["chats"] });
         dispatch(setShowAllUsers(false));
@@ -236,7 +229,7 @@ const ChatSidebar = () => {
         <div className="hover:bg-blue-700 p-2 rounded-lg flex">
           <button
             onClick={() => router.push("/profile")}
-            className="flex gap-2 items-center text-gray-300 hover:text-white"
+            className="flex gap-2 w-full items-center text-gray-300 hover:text-white"
           >
             <UserCircle size={20} />
             <span className="text-xs">Profile</span>
@@ -247,7 +240,7 @@ const ChatSidebar = () => {
         <div className="hover:bg-blue-700 p-2 rounded-lg flex">
           <button
             onClick={() => logout.mutate()}
-            className="flex gap-2  items-center text-gray-300 hover:text-white"
+            className="flex gap-2 w-full  items-center text-gray-300 hover:text-white"
           >
             <span className="text-xs">Logout</span>
             <LogOut size={20} />

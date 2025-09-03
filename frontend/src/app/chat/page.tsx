@@ -2,9 +2,8 @@
 
 import React from "react";
 import ChatSidebar from "../components/ChatSidebar";
-import { useFetchChat } from "../hooks/useChat";
-import { useSelector } from "react-redux";
-import { RootState } from "../redux/store";
+import ChatHeader from "../components/ChatHeader";
+import ChatMessages from "../components/ChatMessages";
 
 export interface Message {
   _id: string;
@@ -22,14 +21,13 @@ export interface Message {
 }
 
 const ChatApp = () => {
-  const { selectedChatId } = useSelector((state: RootState) => state.chat);
-  const { user: loggedInUser } = useSelector((state: RootState) => state.auth);
-  const { data } = useFetchChat(selectedChatId);
-
-  console.log(data);
   return (
     <div className="min-h-screen flex bg-gray-900 text-white relative overflow-hidden">
       <ChatSidebar />
+      <div className="flex-1 flex flex-col justify-between p-4 backdrop-blur-xl bg-white/5 border-1 border-white/10">
+        <ChatHeader />
+        <ChatMessages />
+      </div>
     </div>
   );
 };
