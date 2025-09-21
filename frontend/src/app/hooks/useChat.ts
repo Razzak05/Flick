@@ -1,50 +1,56 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiChat } from "../lib/apiServices";
-import type { Chats } from "../lib/interface";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../redux/store";
+import { setMessage } from "../redux/slices/chatSlice";
+import { useSendMessage } from "./useChatMutations";
+import { useCallback } from "react";
 
-export const useGetAllChats = () => {
-  const fetchAllChats = async (): Promise<Chats[]> => {
-    const res = await apiChat.get(`/chat/all`, {
-      withCredentials: true,
-    });
-    return res.data.chats; // Return the chats array directly
-  };
+export const useChat = () => {
+  const dispatch = useDispatch();
 
-  return useQuery<Chats[], Error>({
-    queryKey: ["chats"],
-    queryFn: fetchAllChats,
-    retry: 1,
-  });
-};
+  const selectedUser = useSelector(
+    (state: RootState) => state.chat.selectedUser
+  );
+  const selectedChatId = useSelector(
+    (state: RootState) => state.chat.selectedChatId
+  );
 
-export const useCreateChat = () => {
-  const queryClient = useQueryClient();
+  const message: string =
+    useSelector((state: RootState) => state.chat.message) ?? "";
 
-  return useMutation({
-    mutationFn: async (otherUserId: string) => {
-      const res = await apiChat.post("/chat/new", { otherUserId });
-      return res.data;
+  const { mutate: sendMessage, isPending } = useSendMessage();
+
+  const handleMessageSend = useCallback(
+    (e: React.FormEvent, imageFile?: File | null) => {
+      e.preventDefault();
+      if (!selectedUser || !selectedChatId) return;
+
+      if (!(message ?? "").trim() && !imageFile) return;
+
+      // ✅ Use selectedChatId from state
+      sendMessage({
+        chatId: selectedChatId,
+        text: message,
+        imageFile,
+      });
+
+      dispatch(setMessage("")); // reset input
     },
-    onSuccess: () => {
-      // Force refresh of chats list
-      queryClient.invalidateQueries({ queryKey: ["chats"] });
-    },
-  });
-};
+    [dispatch, message, selectedUser, selectedChatId, sendMessage]
+  );
 
-export const useFetchChat = (chatId: string | null) => {
-  const fetchChat = async () => {
-    const res = await apiChat.get(`/message/${chatId}`, {
-      withCredentials: true,
-    });
-    return res.data;
+  const handleTyping = useCallback(
+    (value: string) => dispatch(setMessage(value)),
+    [dispatch]
+  );
+
+  return {
+    selectedUser,
+    selectedChatId,
+    message,
+    handleMessageSend,
+    handleTyping,
+    sending: isPending,
   };
-
-  return useQuery({
-    queryKey: ["messages", chatId],
-    queryFn: fetchChat,
-    retry: 1,
-  });
 };

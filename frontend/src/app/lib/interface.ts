@@ -4,11 +4,22 @@ export interface User {
   email: string;
 }
 
+export interface Message {
+  _id: string;
+  text?: string;
+  sender: string | { _id: string }; // server may return either
+  messageType?: "text" | "image";
+  image?: { url: string };
+  createdAt: string;
+  seen?: boolean;
+  seenAt?: string;
+}
+
 export interface Chat {
   _id: string;
   users: string[];
-  latestMessage: {
-    text: string;
+  latestMessage?: {
+    text?: string;
     sender: string;
   };
   createdAt: string;

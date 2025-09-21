@@ -244,6 +244,7 @@ export const getMessagesByChat = async (
       res.status(404).json({
         message: "Chat not found",
       });
+      return;
     }
 
     const isUserInChat = chat.users.some(
@@ -282,7 +283,7 @@ export const getMessagesByChat = async (
     const otherUserId = chat?.users.find((id) => id !== userId);
     try {
       const { data } = await axios.get(
-        `${process.env.USER_SERVICE}/api/v1/user/${otherUserId}`
+        `${process.env.USER_SERVICE_URL}/user/${otherUserId}`
       );
 
       if (!otherUserId) {

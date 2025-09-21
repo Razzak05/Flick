@@ -16,6 +16,12 @@ interface VerifyOtpPayload {
   otp: string;
 }
 
+interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+}
+
 // Request OTP
 export const useRequestOtp = () => {
   return useMutation({
@@ -55,6 +61,17 @@ export const useHandleLogout = () => {
     },
     onError: (error) => {
       toast.error(error.message || "Logout failed!");
+    },
+  });
+};
+
+export const useRegister = () => {
+  return useMutation({
+    mutationFn: async (data: RegisterPayload) => {
+      const res = await apiUser.post("/register", data, {
+        withCredentials: true,
+      });
+      return res.data;
     },
   });
 };

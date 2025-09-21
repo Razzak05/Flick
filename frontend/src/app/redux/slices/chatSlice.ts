@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "@/app/lib/interface";
 
@@ -7,6 +6,7 @@ interface ChatState {
   selectedChatId: string | null;
   sidebarOpen: boolean;
   showAllUsers: boolean;
+  message: string;
   isTyping: boolean;
 }
 
@@ -15,6 +15,7 @@ const initialState: ChatState = {
   selectedChatId: null,
   sidebarOpen: false,
   showAllUsers: false,
+  message: "",
   isTyping: false,
 };
 
@@ -22,34 +23,30 @@ const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
-    // selection
     setSelectedUser: (state, action: PayloadAction<User | null>) => {
       state.selectedUser = action.payload;
     },
     setSelectedChatId: (state, action: PayloadAction<string | null>) => {
       state.selectedChatId = action.payload;
     },
-
-    // sidebar toggles / explicit setters
     toggleSidebar: (state) => {
       state.sidebarOpen = !state.sidebarOpen;
     },
     setSidebarOpen: (state, action: PayloadAction<boolean>) => {
       state.sidebarOpen = action.payload;
     },
-
-    // show all users toggle / explicit setter
     toggleShowAllUsers: (state) => {
       state.showAllUsers = !state.showAllUsers;
     },
     setShowAllUsers: (state, action: PayloadAction<boolean>) => {
       state.showAllUsers = action.payload;
     },
-
+    setMessage: (state, action: PayloadAction<string>) => {
+      state.message = action.payload;
+    },
     setTyping: (state, action: PayloadAction<boolean>) => {
       state.isTyping = action.payload;
     },
-
     resetChat: () => initialState,
   },
 });
@@ -61,6 +58,7 @@ export const {
   setSidebarOpen,
   toggleShowAllUsers,
   setShowAllUsers,
+  setMessage,
   setTyping,
   resetChat,
 } = chatSlice.actions;

@@ -21,11 +21,11 @@ import {
 } from "@/app/redux/slices/chatSlice";
 import { useHandleLogout } from "../hooks/useAuth";
 import { useGetAllUsers } from "../hooks/useUser";
-import { useCreateChat, useGetAllChats } from "../hooks/useChat";
+import { useCreateChat, useGetAllChats } from "../hooks/useChatMutations";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
-const ChatSidebar = () => {
+const ChatSidebar: React.FC = () => {
   const { sidebarOpen, showAllUsers, selectedChatId, selectedUser } =
     useSelector((state: RootState) => state.chat);
   const { user: loggedInUser } = useSelector((state: RootState) => state.auth);
@@ -37,20 +37,16 @@ const ChatSidebar = () => {
   const queryClient = useQueryClient();
   const createChatMutation = useCreateChat();
 
-  // React Query for server state
   const { data: users, isLoading: usersLoading } = useGetAllUsers();
   const { data: chats, isLoading: chatsLoading } = useGetAllChats();
 
   const handleCreateChat = (otherUserId: string) => {
     createChatMutation.mutate(otherUserId, {
       onSuccess: () => {
-        // Invalidate and refetch chats to update the list
         queryClient.invalidateQueries({ queryKey: ["chats"] });
         dispatch(setShowAllUsers(false));
       },
-      onError: (error) => {
-        console.error("Failed to create chat:", error);
-      },
+      onError: (error: any) => console.error("Failed to create chat:", error),
     });
   };
 
@@ -69,13 +65,13 @@ const ChatSidebar = () => {
 
   return (
     <aside
-      className={`fixed z-50 top-0 left-0 h-screen w-80 bg-gray-900 border-r border-gray-700 shadow-sm shadow-blue-900 transform ${
+      className={`fixed z-50 top-0 left-0 h-screen w-80 bg-gray-900 border-r border-gray-700 shadow-sm transform ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       } sm:static sm:translate-x-0 transition-transform duration-300 flex flex-col`}
     >
       {/* Header */}
-      <div className="p-6 border-b border-gray-700 shadow-xs shadow-blue-900">
-        <div className="sm:hidden flex justify-end mb-0">
+      <div className="p-6 border-b border-gray-700">
+        <div className="sm:hidden flex justify-end mb-2">
           <button
             onClick={() => dispatch(setSidebarOpen(false))}
             className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
@@ -138,7 +134,6 @@ const ChatSidebar = () => {
                 )
                 .map((u: any) => {
                   const isSelectedUser = selectedUser?._id === u._id;
-
                   return (
                     <button
                       key={u._id}
@@ -173,11 +168,7 @@ const ChatSidebar = () => {
               return (
                 <button
                   key={chat.chat._id}
-                  onClick={() => {
-                    dispatch(setSelectedChatId(chat.chat._id));
-                    dispatch(setSelectedUser(chat.user));
-                    handleChatClick(chat.chat._id, chat.user);
-                  }}
+                  onClick={() => handleChatClick(chat.chat._id, chat.user)}
                   className={`w-full text-left p-4 rounded-lg transition-colors flex items-center gap-3 ${
                     isSelected
                       ? "bg-blue-600 border border-blue-500 text-white"
@@ -200,14 +191,14 @@ const ChatSidebar = () => {
                         {chat.user.name}
                       </span>
 
-                      {/* 🔹 Unseen Messages Badge */}
+                      {/* Unseen Badge */}
                       {unseenCount > 0 && (
                         <div className="bg-red-600 text-white text-xs font-bold rounded-full min-w-[22px] h-5 flex items-center justify-center px-2">
                           {unseenCount > 99 ? "99+" : unseenCount}
                         </div>
                       )}
                     </div>
-                    <p className="text-sm text-gray-400 truncate">
+                    <p className="text-sm truncate text-gray-400">
                       {latestMessage?.content || "No messages yet"}
                     </p>
                   </div>
@@ -216,7 +207,7 @@ const ChatSidebar = () => {
             })}
           </div>
         ) : (
-          // 🔹 No Chats
+          // 🔹 No Chats At All
           <div className="flex items-center justify-center h-full text-gray-500">
             No chats yet
           </div>
@@ -224,28 +215,24 @@ const ChatSidebar = () => {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t  border-gray-700 flex flex-col justify-around">
-        {/* Profile Button */}
-        <div className="hover:bg-blue-700 p-2 rounded-lg flex">
-          <button
-            onClick={() => router.push("/profile")}
-            className="flex gap-2 w-full items-center text-gray-300 hover:text-white"
-          >
-            <UserCircle size={20} />
-            <span className="text-xs">Profile</span>
-          </button>
-        </div>
+      <div className="p-4 border-t border-gray-700 flex flex-col gap-2">
+        {/* Profile */}
+        <button
+          onClick={() => router.push("/profile")}
+          className="flex gap-2 w-full items-center text-gray-300 hover:text-white p-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <UserCircle size={20} />
+          <span className="text-xs">Profile</span>
+        </button>
 
-        {/* Logout Button */}
-        <div className="hover:bg-blue-700 p-2 rounded-lg flex">
-          <button
-            onClick={() => logout.mutate()}
-            className="flex gap-2 w-full  items-center text-gray-300 hover:text-white"
-          >
-            <span className="text-xs">Logout</span>
-            <LogOut size={20} />
-          </button>
-        </div>
+        {/* Logout */}
+        <button
+          onClick={() => logout.mutate()}
+          className="flex gap-2 w-full items-center text-gray-300 hover:text-white p-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <span className="text-xs">Logout</span>
+          <LogOut size={20} />
+        </button>
       </div>
     </aside>
   );

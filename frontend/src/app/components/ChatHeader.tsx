@@ -1,16 +1,16 @@
 import React from "react";
-import { useSelector } from "react-redux";
-import { useFetchChat } from "../hooks/useChat";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../redux/store";
 import { Menu, UserCircle } from "lucide-react";
-import { setTyping, toggleSidebar } from "@/app/redux/slices/chatSlice";
-import { useDispatch } from "react-redux";
+import { toggleSidebar } from "@/app/redux/slices/chatSlice";
 
-const ChatHeader = () => {
+const ChatHeader: React.FC = () => {
   const { selectedUser } = useSelector((state: RootState) => state.chat);
   const dispatch = useDispatch();
+
   return (
     <>
+      {/* Mobile menu button */}
       <div className="sm:hidden fixed top-4 right-4 z-30">
         <button
           className="p-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
@@ -24,26 +24,15 @@ const ChatHeader = () => {
         <div className="flex items-center gap-4">
           {selectedUser ? (
             <>
-              <div className="relative">
-                <div className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center">
-                  <UserCircle className="w-8 h-8 text-gray-300" />
-                </div>
-                {/* online user setup */}
+              <div className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center">
+                <UserCircle className="w-8 h-8 text-gray-300" />
               </div>
-
-              {/* user info */}
-              <div className="flex min-w-0">
-                <div className="flex items-center gap-3 mb-1">
-                  <h2 className="text-2xl font-bold text-white truncate">
-                    {selectedUser.name}
-                  </h2>
-                </div>
-              </div>
-
-              {/* to show typing status */}
+              <h2 className="text-2xl font-bold text-white truncate">
+                {selectedUser.name}
+              </h2>
             </>
           ) : (
-            <div className="flex items-center gap-4">
+            <>
               <div className="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center">
                 <UserCircle className="w-8 h-8 text-gray-300" />
               </div>
@@ -55,7 +44,7 @@ const ChatHeader = () => {
                   Choose a chat from the sidebar to start messaging
                 </p>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
