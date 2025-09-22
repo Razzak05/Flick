@@ -4,6 +4,7 @@ import ReactQueryProvider from "./providers/ReactQueryProvider";
 import ReactReduxProviders from "./providers/ReactReduxProvider";
 import Protect from "./providers/Protect";
 import { Toaster } from "react-hot-toast";
+import { SocketProvider } from "./context/SocketContext";
 
 export const metadata: Metadata = {
   title: "Flick",
@@ -21,8 +22,10 @@ export default function RootLayout({
         <ReactReduxProviders>
           <ReactQueryProvider>
             <Protect>
-              {children}
-              <Toaster position="top-right" />
+              <SocketProvider>
+                {children}
+                <Toaster position="top-right" />
+              </SocketProvider>
             </Protect>
           </ReactQueryProvider>
         </ReactReduxProviders>

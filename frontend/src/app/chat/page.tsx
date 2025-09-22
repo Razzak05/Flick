@@ -6,10 +6,14 @@ import ChatHeader from "../components/ChatHeader";
 import ChatMessages from "../components/ChatMessages";
 import MessageInput from "../components/MessageInput";
 import { useChat } from "../hooks/useChat";
+import { useSocket } from "../context/SocketContext";
 
 const ChatApp: React.FC = () => {
   const { selectedUser, message, handleMessageSend, handleTyping, sending } =
     useChat();
+
+  const { onlineUsers } = useSocket();
+  console.log(onlineUsers);
 
   return (
     <div className="min-h-screen flex bg-gray-900 text-white relative overflow-hidden">
@@ -19,7 +23,7 @@ const ChatApp: React.FC = () => {
         <ChatMessages />
         <MessageInput
           selectedUser={selectedUser?._id ?? null}
-          message={message ?? ""} // ✅ ensure safe string
+          message={message ?? ""}
           setMessage={handleTyping}
           handleMessageSend={handleMessageSend}
           sending={sending}
