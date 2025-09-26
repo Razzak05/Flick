@@ -236,14 +236,6 @@ const ChatSidebar: React.FC = () => {
       {/* ---------- Footer ---------- */}
       <div className="p-4 border-t border-gray-700 flex flex-col gap-2">
         <button
-          onClick={() => router.push("/profile")}
-          className="flex gap-2 w-full items-center text-gray-300 hover:text-white p-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <UserCircle size={20} />
-          <span className="text-sm">Profile</span>
-        </button>
-
-        <button
           onClick={() => logout.mutate()}
           className="flex gap-2 w-full items-center text-gray-300 hover:text-white p-2 rounded-lg hover:bg-blue-700 transition-colors"
         >

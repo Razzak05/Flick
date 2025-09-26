@@ -1,8 +1,10 @@
+// controllers/chat.ts
 import type { Request, Response } from "express";
 import type { AuthenticatedRequest } from "../middlewares/verifyToken.js";
 import Chat from "../models/chat.js";
 import Message from "../models/message.js";
 import axios from "axios";
+import { io } from "../config/socket.js"; // <--- used to emit socket events
 
 export const createNewChat = async (
   req: AuthenticatedRequest,
@@ -130,6 +132,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       res.status(400).json({
         message: "Either text or image is required",
       });
+      return;
     }
 
     const chat = await Chat.findById(chatId);
@@ -163,8 +166,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    // socket setup
-
+    // construct message
     let messageData: any = {
       chatId: chatId,
       sender: senderId,
@@ -189,7 +191,8 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
 
     const latestMessageText = imageFile ? "📷" : text;
 
-    await Chat.findByIdAndUpdate(
+    // update chat latestMessage and updatedAt
+    const updatedChat = await Chat.findByIdAndUpdate(
       chatId,
       {
         latestMessage: {
@@ -201,8 +204,45 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       { new: true }
     );
 
-    //emit to sockets
+    // compute unseen counts for both participants (each user's perspective)
+    const unseenCountForOther = await Message.countDocuments({
+      chatId: chatId,
+      sender: { $ne: otherUserId },
+      seen: false,
+    });
 
+    const unseenCountForSender = await Message.countDocuments({
+      chatId: chatId,
+      sender: { $ne: senderId },
+      seen: false,
+    });
+
+    // Emit the saved message to the chat room (so open chat windows receive it)
+    io.to(chatId).emit("newMessage", savedMessage);
+
+    // Emit chat metadata update to the recipient's personal room
+    io.to(String(otherUserId)).emit("chatUpdated", {
+      chatId,
+      latestMessage: {
+        text: latestMessageText,
+        sender: senderId,
+      },
+      unseenCount: unseenCountForOther,
+      updatedAt: updatedChat?.updatedAt || new Date(),
+    });
+
+    // Emit chat metadata update to the sender's personal room (their unseen count may differ)
+    io.to(String(senderId)).emit("chatUpdated", {
+      chatId,
+      latestMessage: {
+        text: latestMessageText,
+        sender: senderId,
+      },
+      unseenCount: unseenCountForSender,
+      updatedAt: updatedChat?.updatedAt || new Date(),
+    });
+
+    // return saved message
     res.status(201).json({
       message: savedMessage,
       sender: senderId,
@@ -247,8 +287,9 @@ export const getMessagesByChat = async (
       return;
     }
 
+    // fixed bug: correct variable names for membership check
     const isUserInChat = chat.users.some(
-      (userId) => userId.toString() === userId.toString()
+      (uid) => uid.toString() === userId.toString()
     );
 
     if (!isUserInChat) {
@@ -258,12 +299,7 @@ export const getMessagesByChat = async (
       return;
     }
 
-    const messagesToMarkSeen = await Message.find({
-      chatId: chatId,
-      sender: { $ne: userId },
-      seen: false,
-    });
-
+    // Mark messages (sent by other user) as seen for this user
     await Message.updateMany(
       {
         chatId: chatId,
@@ -281,11 +317,48 @@ export const getMessagesByChat = async (
     });
 
     const otherUserId = chat?.users.find((id) => id !== userId);
-    try {
-      const { data } = await axios.get(
-        `${process.env.USER_SERVICE_URL}/user/${otherUserId}`
-      );
 
+    // compute updated unseen counts for both participants
+    const unseenCountForCurrent = await Message.countDocuments({
+      chatId: chatId,
+      sender: { $ne: userId },
+      seen: false,
+    });
+
+    const unseenCountForOther = otherUserId
+      ? await Message.countDocuments({
+          chatId: chatId,
+          sender: { $ne: otherUserId },
+          seen: false,
+        })
+      : 0;
+
+    // Emit chatUpdated to both participants (so their sidebars update unread counts)
+    if (otherUserId) {
+      io.to(String(userId)).emit("chatUpdated", {
+        chatId,
+        latestMessage: chat.latestMessage || null,
+        unseenCount: unseenCountForCurrent,
+        updatedAt: chat.updatedAt || new Date(),
+      });
+
+      io.to(String(otherUserId)).emit("chatUpdated", {
+        chatId,
+        latestMessage: chat.latestMessage || null,
+        unseenCount: unseenCountForOther,
+        updatedAt: chat.updatedAt || new Date(),
+      });
+    } else {
+      // only current user if other not present
+      io.to(String(userId)).emit("chatUpdated", {
+        chatId,
+        latestMessage: chat.latestMessage || null,
+        unseenCount: unseenCountForCurrent,
+        updatedAt: chat.updatedAt || new Date(),
+      });
+    }
+
+    try {
       if (!otherUserId) {
         res.status(400).json({
           message: "No other user",
@@ -293,7 +366,9 @@ export const getMessagesByChat = async (
         return;
       }
 
-      //socket work
+      const { data } = await axios.get(
+        `${process.env.USER_SERVICE_URL}/user/${otherUserId}`
+      );
 
       res.json({
         messages,

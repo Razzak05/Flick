@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import {
@@ -11,11 +12,12 @@ import {
 import { useSelector } from "react-redux";
 import { io, Socket } from "socket.io-client";
 import { RootState } from "../redux/store";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface SocketContextType {
   socket: Socket | null;
   onlineUsers: string[];
-  typingMap: Record<string, string | null>; // chatId -> userId who's typing (or null)
+  typingMap: Record<string, string | null>; // chatId -> userId typing (or null)
 }
 
 interface ProviderProps {
@@ -36,89 +38,134 @@ export const SocketProvider = ({ children }: ProviderProps) => {
   const { selectedChatId } = useSelector((state: RootState) => state.chat);
 
   const prevChatRef = useRef<string | null>(null);
+  const queryClient = useQueryClient();
 
+  // Connect socket when user logs in
   useEffect(() => {
-    if (user) {
-      const newSocket = io(
-        process.env.NEXT_PUBLIC_BACKEND_URL_CHAT_SERVICE!.replace(
-          "/api/v1",
-          ""
-        ),
-        {
-          transports: ["websocket", "polling"],
-          withCredentials: true,
+    if (!user) return;
+
+    const newSocket = io(
+      process.env.NEXT_PUBLIC_BACKEND_URL_CHAT_SERVICE!.replace("/api/v1", ""),
+      {
+        transports: ["websocket", "polling"],
+        withCredentials: true,
+      }
+    );
+
+    setSocket(newSocket);
+
+    // On connect, join user room
+    newSocket.on("connect", () => {
+      newSocket.emit("join", user._id);
+    });
+
+    // Online users sync
+    newSocket.on("onlineUsers", (users: string[]) => {
+      setOnlineUsers(users || []);
+    });
+
+    newSocket.on("user-online", ({ userId }: { userId: string }) => {
+      setOnlineUsers((prev) =>
+        prev.includes(userId) ? prev : [...prev, userId]
+      );
+    });
+
+    newSocket.on("user-offline", ({ userId }: { userId: string }) => {
+      setOnlineUsers((prev) => prev.filter((id) => id !== userId));
+    });
+
+    // Typing indicator
+    const handleUserTyping = (data: {
+      userId: string;
+      isTyping: boolean;
+      roomId: string;
+    }) => {
+      setTypingMap((prev) => {
+        const next = { ...prev };
+        if (data.isTyping) {
+          next[data.roomId] = data.userId;
+        } else if (next[data.roomId] === data.userId) {
+          next[data.roomId] = null;
         }
-      );
-
-      setSocket(newSocket);
-
-      newSocket.on("connect", () => {
-        console.log("✅ Socket connected:", newSocket.id);
-        newSocket.emit("join", user._id);
+        return next;
       });
+    };
+    newSocket.on("userTyping", handleUserTyping);
 
-      newSocket.on("onlineUsers", (users: string[]) => {
-        setOnlineUsers(users || []);
+    // New message
+    const handleNewMessage = (msg: any) => {
+      const chatId = msg?.chatId || msg?.chat || msg?.chatId?.toString();
+      if (!chatId) return;
+
+      queryClient.setQueryData(["messages", chatId], (old: any) => {
+        if (!old) return { messages: [msg] };
+        const exists = (old.messages || []).some(
+          (m: any) => String(m._id) === String(msg._id)
+        );
+        if (exists) return old;
+        return { ...old, messages: [...(old.messages || []), msg] };
       });
+    };
+    newSocket.on("newMessage", handleNewMessage);
 
-      newSocket.on("user-online", ({ userId }: { userId: string }) => {
-        setOnlineUsers((prev) => {
-          if (prev.includes(userId)) return prev;
-          return [...prev, userId];
-        });
+    // Chat updated (latestMessage + unseenCount)
+    const handleChatUpdated = (data: {
+      chatId: string;
+      latestMessage: any;
+      unseenCount: number;
+      updatedAt?: string;
+    }) => {
+      if (!data?.chatId) return;
+      queryClient.setQueryData(["chats"], (old: any) => {
+        if (!old || !Array.isArray(old)) return old;
+        const chatsCopy = [...old];
+        const idx = chatsCopy.findIndex(
+          (c: any) => String(c.chat._id) === String(data.chatId)
+        );
+        if (idx === -1) return old;
+
+        const chatItem = { ...chatsCopy[idx] };
+        chatItem.chat = {
+          ...chatItem.chat,
+          latestMessage: data.latestMessage ?? chatItem.chat.latestMessage,
+          unseenCount:
+            typeof data.unseenCount === "number"
+              ? data.unseenCount
+              : chatItem.chat.unseenCount ?? 0,
+          updatedAt: data.updatedAt ?? chatItem.chat.updatedAt,
+        };
+
+        chatsCopy.splice(idx, 1);
+        chatsCopy.unshift(chatItem);
+        return chatsCopy;
       });
+    };
+    newSocket.on("chatUpdated", handleChatUpdated);
 
-      newSocket.on("user-offline", ({ userId }: { userId: string }) => {
-        setOnlineUsers((prev) => prev.filter((id) => id !== userId));
-      });
+    // ✅ Cleanup
+    return () => {
+      newSocket.off("userTyping", handleUserTyping);
+      newSocket.off("newMessage", handleNewMessage);
+      newSocket.off("chatUpdated", handleChatUpdated);
+      newSocket.disconnect();
+      setSocket(null);
+    };
+  }, [user, queryClient]);
 
-      // typing events (payload: { userId, isTyping, roomId })
-      const handleUserTyping = (data: {
-        userId: string;
-        isTyping: boolean;
-        roomId: string;
-      }) => {
-        setTypingMap((prev) => {
-          const next = { ...prev };
-          if (data.isTyping) {
-            next[data.roomId] = data.userId;
-          } else {
-            // only clear if same user was typing
-            if (next[data.roomId] === data.userId) {
-              next[data.roomId] = null;
-            }
-          }
-          return next;
-        });
-      };
-
-      newSocket.on("userTyping", handleUserTyping);
-
-      newSocket.on("disconnect", () => console.log("❌ Socket disconnected"));
-      newSocket.on("connect_error", (err) =>
-        console.error("⚠️ Socket error:", err)
-      );
-
-      return () => {
-        newSocket.off("userTyping", handleUserTyping);
-        newSocket.disconnect();
-        setSocket(null);
-      };
-    }
-  }, [user]);
-
-  // join/leave chat room when selectedChatId changes
+  // Join / leave chat rooms on selection change
   useEffect(() => {
     if (!socket) return;
     const prev = prevChatRef.current;
+
     if (prev && prev !== selectedChatId) {
       socket.emit("leaveRoom", prev);
     }
     if (selectedChatId) {
       socket.emit("joinRoom", selectedChatId);
     }
+
     prevChatRef.current = selectedChatId;
-    // When cleaning up component (unmount), ensure leave
+
     return () => {
       if (selectedChatId) {
         socket.emit("leaveRoom", selectedChatId);

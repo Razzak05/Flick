@@ -19,8 +19,6 @@ const userSocketMap: Record<string, string> = {};
 const socketUserMap: Record<string, string> = {};
 
 io.on("connection", (socket: Socket) => {
-  console.log("✅ User connected:", socket.id);
-
   // User joins with their userId (personal room)
   socket.on("join", (userId: string) => {
     if (!userId) return;
@@ -40,14 +38,12 @@ io.on("connection", (socket: Socket) => {
   socket.on("joinRoom", (roomId: string) => {
     if (!roomId) return;
     socket.join(roomId);
-    console.log(`Socket ${socket.id} joined room ${roomId}`);
   });
 
   // Leave a chat room when closing a chat
   socket.on("leaveRoom", (roomId: string) => {
     if (!roomId) return;
     socket.leave(roomId);
-    console.log(`Socket ${socket.id} left room ${roomId}`);
   });
 
   // Handle typing events (expects { roomId, isTyping })
@@ -79,7 +75,6 @@ io.on("connection", (socket: Socket) => {
 
   // Handle disconnect
   socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
     const userId = socketUserMap[socket.id];
 
     if (userId) {
