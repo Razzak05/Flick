@@ -1,36 +1,26 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "../redux/store";
-import { Menu, Circle, Dot } from "lucide-react";
-import { toggleSidebar } from "@/app/redux/slices/chatSlice";
+import { Menu } from "lucide-react";
+import { toggleSidebar } from "../redux/slices/chatSlice";
 import { useSocket } from "../context/SocketContext";
 
 const ChatHeader: React.FC = () => {
-  const { selectedUser } = useSelector((state: RootState) => state.chat);
-  const { onlineUsers, socket } = useSocket();
+  const { selectedUser, selectedChatId } = useSelector(
+    (state: RootState) => state.chat
+  );
   const dispatch = useDispatch();
-  const [isTyping, setIsTyping] = useState(false);
+  const { onlineUsers, typingMap } = useSocket();
 
   const isOnline = selectedUser && onlineUsers.includes(selectedUser._id);
 
-  // Listen for typing events
-  useEffect(() => {
-    if (!socket || !selectedUser) return;
-
-    const handleTyping = (data: { userId: string; isTyping: boolean }) => {
-      if (data.userId === selectedUser._id) {
-        setIsTyping(data.isTyping);
-      }
-    };
-
-    socket.on("userTyping", handleTyping);
-
-    return () => {
-      socket.off("userTyping", handleTyping);
-    };
-  }, [socket, selectedUser]);
+  // derive typing state from typingMap (set in SocketContext)
+  const isTyping =
+    !!selectedChatId &&
+    !!typingMap[selectedChatId] &&
+    typingMap[selectedChatId] === selectedUser?._id;
 
   return (
     <>
@@ -66,14 +56,7 @@ const ChatHeader: React.FC = () => {
                 </div>
 
                 {isTyping ? (
-                  <div className="flex items-center gap-1 text-sm text-blue-400 mt-1">
-                    <div className="flex gap-1">
-                      <Dot className="w-4 h-4 animate-bounce" />
-                      <Dot className="w-4 h-4 animate-bounce delay-100" />
-                      <Dot className="w-4 h-4 animate-bounce delay-200" />
-                    </div>
-                    <span>typing...</span>
-                  </div>
+                  <div className="text-sm text-blue-400 mt-1">typing...</div>
                 ) : isOnline ? (
                   <p className="text-sm text-gray-400 mt-1">Active now</p>
                 ) : (

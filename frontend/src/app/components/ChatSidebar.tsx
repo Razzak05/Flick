@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { RootState } from "@/app/redux/store";
+import { RootState } from "../redux/store";
 import {
   MessageCircle,
   Plus,
@@ -18,7 +18,7 @@ import {
   setShowAllUsers,
   setSelectedUser,
   setSelectedChatId,
-} from "@/app/redux/slices/chatSlice";
+} from "../redux/slices/chatSlice";
 import { useHandleLogout } from "../hooks/useAuth";
 import { useGetAllUsers } from "../hooks/useUser";
 import { useCreateChat, useGetAllChats } from "../hooks/useChatMutations";
@@ -37,7 +37,7 @@ const ChatSidebar: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const createChatMutation = useCreateChat();
-  const { onlineUsers } = useSocket();
+  const { onlineUsers, typingMap } = useSocket();
 
   const { data: users, isLoading: usersLoading } = useGetAllUsers();
   const { data: chats, isLoading: chatsLoading } = useGetAllChats();
@@ -190,6 +190,12 @@ const ChatSidebar: React.FC = () => {
               const latestMessage = chat.chat.latestMessage;
               const unseenCount = chat.chat.unseenCount || 0;
               const isSelected = selectedChatId === chat.chat._id;
+
+              // typing map: show 'typing...' if someone is typing in this chat
+              const typingUserId = typingMap?.[chat.chat._id];
+              const isOtherTyping =
+                !!typingUserId && typingUserId !== loggedInUser?._id;
+
               return (
                 <button
                   key={chat.chat._id}
@@ -205,7 +211,9 @@ const ChatSidebar: React.FC = () => {
                     <span className="font-semibold">{chat.user.name}</span>
                     {renderUserStatus(chat.user._id)}
                     <p className="text-sm text-gray-400 truncate">
-                      {latestMessage?.content || "No messages yet"}
+                      {isOtherTyping
+                        ? "typing..."
+                        : latestMessage?.text || "No messages yet"}
                     </p>
                   </div>
 

@@ -21,31 +21,54 @@ const socketUserMap: Record<string, string> = {};
 io.on("connection", (socket: Socket) => {
   console.log("✅ User connected:", socket.id);
 
-  // User joins with their userId
+  // User joins with their userId (personal room)
   socket.on("join", (userId: string) => {
+    if (!userId) return;
     socket.join(userId);
     userSocketMap[userId] = socket.id;
     socketUserMap[socket.id] = userId;
     console.log(`User ${userId} joined with socket ${socket.id}`);
 
-    // Broadcast updated online users list
+    // Emit aggregated online users array (useful for presence lists)
     io.emit("onlineUsers", Object.keys(userSocketMap));
+
+    // Emit single user-online event for convenience
+    io.emit("user-online", { userId });
   });
 
-  // Handle typing events
+  // Join a chat room (chatId). Clients should call this when opening a chat.
+  socket.on("joinRoom", (roomId: string) => {
+    if (!roomId) return;
+    socket.join(roomId);
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+  });
+
+  // Leave a chat room when closing a chat
+  socket.on("leaveRoom", (roomId: string) => {
+    if (!roomId) return;
+    socket.leave(roomId);
+    console.log(`Socket ${socket.id} left room ${roomId}`);
+  });
+
+  // Handle typing events (expects { roomId, isTyping })
   socket.on("typing", (data: { roomId: string; isTyping: boolean }) => {
     const userId = socketUserMap[socket.id];
+    if (!data?.roomId) return;
+    // Emit to the room so only other participants receive this
+    // Include roomId in payload so clients can map typing to chats
     socket.to(data.roomId).emit("userTyping", {
       userId,
       isTyping: data.isTyping,
+      roomId: data.roomId,
     });
   });
 
-  // Handle messages
+  // Handle messages (this implementation only forwards to room)
   socket.on(
     "sendMessage",
     ({ roomId, message }: { roomId: string; message: string }) => {
       const userId = socketUserMap[socket.id];
+      if (!roomId) return;
       io.to(roomId).emit("receiveMessage", {
         message,
         senderId: userId,
@@ -62,7 +85,11 @@ io.on("connection", (socket: Socket) => {
     if (userId) {
       delete userSocketMap[userId];
       delete socketUserMap[socket.id];
+
+      // Broadcast updated online users list
       io.emit("onlineUsers", Object.keys(userSocketMap));
+      // Emit single user-offline event
+      io.emit("user-offline", { userId });
     }
   });
 
