@@ -14,8 +14,9 @@ export const validateRequest = (schema: ZodType<any>) => {
       const validatedData = await schema.parseAsync(req.body);
       req.body = validatedData;
       next();
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof ZodError) {
+        // Use inline type instead of deprecated ZodIssue
         const errorMessages = error.issues.map((issue) => ({
           field: issue.path.join("."),
           message: issue.message,
@@ -27,6 +28,7 @@ export const validateRequest = (schema: ZodType<any>) => {
         });
       }
 
+      console.error("Validation middleware error:", error);
       return res.status(500).json({ message: "Internal server error" });
     }
   };
