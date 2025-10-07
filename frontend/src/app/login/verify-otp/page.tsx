@@ -3,21 +3,20 @@
 
 import React, { useRef } from "react";
 import { Mail } from "lucide-react";
-import OtpInput from "@/app/components/OtpInput";
+import OtpInput from "../../components/OtpInput";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { useVerifyOtp } from "@/app/hooks/useAuth";
+import { useVerifyOtp } from "../../hooks/useAuth";
 import { useDispatch } from "react-redux";
-import { loginSuccess } from "@/app/redux/slices/userSlice";
+import { loginSuccess } from "../../redux/slices/userSlice";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   setSelectedChatId,
   setSelectedUser,
-} from "@/app/redux/slices/chatSlice";
-
+} from "../../redux/slices/chatSlice";
 const otpSchema = z.object({
   otp: z.string().length(6, "OTP must be exactly 6 digits"),
 });

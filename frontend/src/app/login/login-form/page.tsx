@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { useRequestOtp } from "@/app/hooks/useAuth";
+import { useRequestOtp } from "../../hooks/useAuth";
 
 // Zod schema
 const loginSchema = z.object({
