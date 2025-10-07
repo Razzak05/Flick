@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { User } from "@/app/lib/interface";
+import { User } from "../../lib/interface";
 
 interface ChatState {
   selectedUser: User | null;
