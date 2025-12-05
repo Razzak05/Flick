@@ -196,8 +196,8 @@ export const UpdatePassword = async (
 export const Logout = (req: Request, res: Response): Response => {
   res.clearCookie("accessToken", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: true,
+    sameSite: "none",
     path: "/",
   });
 
@@ -210,15 +210,15 @@ export const myProfile = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const userId = req.user?._id;
+    const userId = req.user._id;
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("-password");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    const { password: pwd, ...userData } = user.toObject();
 
-    return res.json({
+    return res.status(200).json({
+      success: true,
       user,
     });
   } catch (error) {

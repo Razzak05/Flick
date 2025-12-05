@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import { Mail } from "lucide-react";
 import OtpInput from "../../components/OtpInput";
 import { useForm } from "react-hook-form";
@@ -13,13 +13,11 @@ import { useDispatch } from "react-redux";
 import { loginSuccess } from "../../redux/slices/userSlice";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  setSelectedChatId,
-  setSelectedUser,
-} from "../../redux/slices/chatSlice";
+
 const otpSchema = z.object({
   otp: z.string().length(6, "OTP must be exactly 6 digits"),
 });
+
 type OtpFormData = z.infer<typeof otpSchema>;
 
 interface VerifyOtpProps {
@@ -31,15 +29,14 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
   const dispatch = useDispatch();
   const router = useRouter();
   const queryClient = useQueryClient();
+
   const verifyOtp = useVerifyOtp();
 
   const {
     setValue,
     handleSubmit,
     formState: { errors },
-  } = useForm<OtpFormData>({
-    resolver: zodResolver(otpSchema),
-  });
+  } = useForm<OtpFormData>({ resolver: zodResolver(otpSchema) });
 
   const handleOtpComplete = (otpValue: string) => {
     setValue("otp", otpValue, { shouldValidate: true });
@@ -51,13 +48,15 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
       {
         onSuccess: (user) => {
           dispatch(loginSuccess(user));
-          dispatch(setSelectedUser(null));
-          dispatch(setSelectedChatId(null));
-          toast.success("Login successful!");
+
+          toast.success("Login Successful!");
+
           queryClient.invalidateQueries({ queryKey: ["chats"] });
           queryClient.invalidateQueries({ queryKey: ["users"] });
+
           router.push("/chat");
         },
+
         onError: (error: any) => {
           const message =
             error?.response?.data?.message || error?.message || "Invalid OTP";
@@ -78,19 +77,18 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
             Enter Verification Code
           </h1>
           <p className="text-gray-300">
-            We&apos;ve sent a 6-digit code to {email}
+            We sent an OTP to <span className="text-white">{email}</span>
           </p>
         </div>
 
         <form onSubmit={handleSubmit(handleVerifyOtp)}>
-          <div className="mb-6">
-            <OtpInput length={6} onComplete={handleOtpComplete} />
-            {errors.otp && (
-              <p className="mt-2 text-sm text-red-400 text-center">
-                {errors.otp.message}
-              </p>
-            )}
-          </div>
+          <OtpInput length={6} onComplete={handleOtpComplete} />
+
+          {errors.otp && (
+            <p className="mt-2 text-sm text-red-400 text-center">
+              {errors.otp.message}
+            </p>
+          )}
 
           <button
             type="submit"
@@ -103,9 +101,9 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
           <button
             type="button"
             onClick={onBack}
-            className="w-full mt-4 py-2 text-gray-300 font-medium rounded-lg hover:text-white"
+            className="w-full mt-4 py-2 text-gray-300 font-medium hover:text-white"
           >
-            Back to login
+            Back to Login
           </button>
         </form>
       </div>

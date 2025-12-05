@@ -5,6 +5,7 @@ import ReactReduxProviders from "./providers/ReactReduxProvider";
 import Protect from "./providers/Protect";
 import { Toaster } from "react-hot-toast";
 import { SocketProvider } from "./context/SocketContext";
+import AuthInit from "./components/AuthInit";
 
 export const metadata: Metadata = {
   title: "Flick",
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body>
         <ReactReduxProviders>
           <ReactQueryProvider>
+            <AuthInit />
             <Protect>
               <SocketProvider>
                 {children}
