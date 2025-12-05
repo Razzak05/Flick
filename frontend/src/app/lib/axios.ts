@@ -8,12 +8,18 @@ export const createApi = (baseURL: string) => {
     withCredentials: true,
   });
 
+  // In your axios interceptor
   api.interceptors.response.use(
-    (response) => {
-      return Promise.resolve(response);
-    },
+    (response) => response,
     (error) => {
+      console.log("Interceptor caught error:", {
+        status: error.response?.status,
+        url: error.config?.url,
+        message: error.message,
+      });
+
       if (error.response?.status === 401) {
+        console.log("401 detected, triggering logout");
         store.dispatch(logout());
         window.location.href = "/login";
       }
