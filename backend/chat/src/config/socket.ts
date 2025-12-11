@@ -1,6 +1,8 @@
 import { Server, Socket } from "socket.io";
 import http from "http";
 import express from "express";
+import jwt from "jsonwebtoken";
+import axios from "axios";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -19,19 +21,49 @@ const userSocketMap: Record<string, string> = {};
 // Store socket ID to user ID mapping
 const socketUserMap: Record<string, string> = {};
 
+io.use(async (socket: Socket, next) => {
+  try {
+    const token = socket.handshake.auth.token || socket.handshake.query.token;
+
+    if (!token) {
+      return next(new Error("Authentication error: No token provided"));
+    }
+
+    // Verify JWT locally (NO external calls)
+    const decoded = jwt.verify(token as string, process.env.JWT_SECRET!);
+
+    // Type guard to handle JWT payload properly
+    const userId = typeof decoded === "string" ? decoded : decoded.id;
+
+    if (!userId) {
+      return next(new Error("Token payload missing user ID"));
+    }
+
+    // Attach minimal user info
+    socket.data.user = {
+      _id: userId,
+    };
+
+    next();
+  } catch (error) {
+    console.error("Socket JWT verification failed:", error);
+    return next(new Error("Authentication failed"));
+  }
+});
+
 io.on("connection", (socket: Socket) => {
   // User joins with their userId (personal room)
-  socket.on("join", (userId: string) => {
+  socket.on("join", () => {
+    const userId = socket.data.user?._id;
     if (!userId) return;
+
     socket.join(userId);
     userSocketMap[userId] = socket.id;
     socketUserMap[socket.id] = userId;
     console.log(`User ${userId} joined with socket ${socket.id}`);
 
-    // Emit aggregated online users array (useful for presence lists)
+    // Emit aggregated online users array
     io.emit("onlineUsers", Object.keys(userSocketMap));
-
-    // Emit single user-online event for convenience
     io.emit("user-online", { userId });
   });
 

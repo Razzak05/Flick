@@ -44,11 +44,28 @@ export const SocketProvider = ({ children }: ProviderProps) => {
   useEffect(() => {
     if (!user) return;
 
+    const getToken = () => {
+      const cookies = document.cookie.split(";");
+      const tokenCookie = cookies.find((cookie) =>
+        cookie.trim().startsWith("accessToken=")
+      );
+      return tokenCookie ? tokenCookie.split("=")[1] : null;
+    };
+
+    const token = getToken();
+
     const newSocket = io(
       process.env.NEXT_PUBLIC_BACKEND_URL_CHAT_SERVICE!.replace("/api/v1", ""),
       {
         transports: ["websocket", "polling"],
         withCredentials: true,
+        auth: {
+          token: token,
+        },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000,
       }
     );
 
@@ -57,6 +74,23 @@ export const SocketProvider = ({ children }: ProviderProps) => {
     // On connect, join user room
     newSocket.on("connect", () => {
       newSocket.emit("join", user._id);
+    });
+
+    newSocket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error.message);
+
+      // Don't logout on socket errors - just reconnect
+      if (error.message.includes("Authentication")) {
+        console.log("Authentication failed, will retry...");
+      }
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.log("Socket disconnected:", reason);
+      if (reason === "io server disconnect") {
+        // Server intentionally disconnected, try to reconnect
+        newSocket.connect();
+      }
     });
 
     // Online users sync

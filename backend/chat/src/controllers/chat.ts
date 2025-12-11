@@ -218,7 +218,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     // Emit the saved message to the chat room (so open chat windows receive it)
-    io.to(chatId).emit("newMessage", savedMessage);
+    io.to(chatId).emit("newMessage", {
+      ...savedMessage.toObject(),
+      chatId: chatId,
+    });
 
     // Emit chat metadata update to the recipient's personal room
     io.to(String(otherUserId)).emit("chatUpdated", {
