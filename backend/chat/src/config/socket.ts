@@ -1,129 +1,100 @@
-import { Server, Socket } from "socket.io";
+import { Server } from "socket.io";
 import http from "http";
-import express from "express";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 
-const app = express();
-app.set("trust proxy", 1);
-const server = http.createServer(app);
-
+const server = http.createServer();
 const io = new Server(server, {
   cors: {
     origin: process.env.FRONTEND_URL,
-    methods: ["GET", "POST"],
     credentials: true,
+    methods: ["GET", "POST"],
   },
+  transports: ["websocket", "polling"],
 });
 
-// Store user ID to socket ID mapping
-const userSocketMap: Record<string, string> = {};
-// Store socket ID to user ID mapping
-const socketUserMap: Record<string, string> = {};
-
-io.use(async (socket: Socket, next) => {
+// Socket authentication middleware
+io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth.token || socket.handshake.query.token;
+    // Get token from handshake
+    const token =
+      socket.handshake.auth?.token || (socket.handshake.query?.token as string);
 
     if (!token) {
       return next(new Error("Authentication error: No token provided"));
     }
 
-    // Verify JWT locally (NO external calls)
-    const decoded = jwt.verify(token as string, process.env.JWT_SECRET!);
+    // Verify token with user service
+    try {
+      const { data } = await axios.get(`${process.env.USER_SERVICE_URL}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
 
-    // Type guard to handle JWT payload properly
-    const userId = typeof decoded === "string" ? decoded : decoded.id;
+      if (!data.user) {
+        return next(new Error("Authentication error: Invalid user"));
+      }
 
-    if (!userId) {
-      return next(new Error("Token payload missing user ID"));
+      socket.data.user = data.user;
+      next();
+    } catch (error) {
+      // Fallback: verify locally
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      socket.data.user = { _id: decoded.id };
+      next();
     }
-
-    // Attach minimal user info
-    socket.data.user = {
-      _id: userId,
-    };
-
-    next();
   } catch (error) {
-    console.error("Socket JWT verification failed:", error);
-    return next(new Error("Authentication failed"));
+    console.error("Socket auth error:", error);
+    next(new Error("Authentication error"));
   }
 });
 
-io.on("connection", (socket: Socket) => {
-  // User joins with their userId (personal room)
-  socket.on("join", () => {
-    const userId = socket.data.user?._id;
-    if (!userId) return;
+io.on("connection", (socket) => {
+  const userId = socket.data.user?._id;
+  console.log(`User connected: ${userId}, Socket: ${socket.id}`);
 
+  // Join user's personal room
+  if (userId) {
     socket.join(userId);
-    userSocketMap[userId] = socket.id;
-    socketUserMap[socket.id] = userId;
-    console.log(`User ${userId} joined with socket ${socket.id}`);
 
-    // Emit aggregated online users array
-    io.emit("onlineUsers", Object.keys(userSocketMap));
-    io.emit("user-online", { userId });
-  });
+    // Notify others this user is online
+    socket.broadcast.emit("user-online", { userId });
 
-  // Join a chat room (chatId). Clients should call this when opening a chat.
-  socket.on("joinRoom", (roomId: string) => {
-    if (!roomId) return;
+    // Send current online users
+    const onlineUsers = Array.from(io.sockets.sockets.values())
+      .map((s) => s.data.user?._id)
+      .filter((id) => id);
+    io.emit("onlineUsers", [...new Set(onlineUsers)]);
+  }
+
+  // Join chat room
+  socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
+    console.log(`User ${userId} joined room ${roomId}`);
   });
 
-  // Leave a chat room when closing a chat
-  socket.on("leaveRoom", (roomId: string) => {
-    if (!roomId) return;
+  // Leave chat room
+  socket.on("leaveRoom", (roomId) => {
     socket.leave(roomId);
+    console.log(`User ${userId} left room ${roomId}`);
   });
 
-  // Handle typing events (expects { roomId, isTyping })
-  socket.on("typing", (data: { roomId: string; isTyping: boolean }) => {
-    const userId = socketUserMap[socket.id];
-    if (!data?.roomId) return;
-    // Emit to the room so only other participants receive this
-    // Include roomId in payload so clients can map typing to chats
-    socket.to(data.roomId).emit("userTyping", {
+  // Typing indicator
+  socket.on("typing", ({ roomId, isTyping }) => {
+    socket.to(roomId).emit("userTyping", {
       userId,
-      isTyping: data.isTyping,
-      roomId: data.roomId,
+      isTyping,
+      roomId,
     });
   });
 
-  // Handle messages (this implementation only forwards to room)
-  socket.on(
-    "sendMessage",
-    ({ roomId, message }: { roomId: string; message: string }) => {
-      const userId = socketUserMap[socket.id];
-      if (!roomId) return;
-      io.to(roomId).emit("receiveMessage", {
-        message,
-        senderId: userId,
-        timestamp: new Date(),
-      });
-    }
-  );
-
-  // Handle disconnect
+  // Disconnect
   socket.on("disconnect", () => {
-    const userId = socketUserMap[socket.id];
-
+    console.log(`User disconnected: ${userId}`);
     if (userId) {
-      delete userSocketMap[userId];
-      delete socketUserMap[socket.id];
-
-      // Broadcast updated online users list
-      io.emit("onlineUsers", Object.keys(userSocketMap));
-      // Emit single user-offline event
-      io.emit("user-offline", { userId });
+      socket.broadcast.emit("user-offline", { userId });
     }
-  });
-
-  socket.on("connect_error", (error) => {
-    console.error("⚠️ Socket connection error:", error.message);
   });
 });
 
-export { app, server, io };
+export { io, server };

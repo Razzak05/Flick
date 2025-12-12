@@ -49,14 +49,25 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
         onSuccess: (user) => {
           dispatch(loginSuccess(user));
 
-          toast.success("Login Successful!");
+          // Store token for chat service
+          const getTokenFromCookie = () => {
+            const cookies = document.cookie.split(";");
+            const tokenCookie = cookies.find((cookie) =>
+              cookie.trim().startsWith("accessToken=")
+            );
+            return tokenCookie ? tokenCookie.split("=")[1] : null;
+          };
 
+          const token = getTokenFromCookie();
+          if (token) {
+            localStorage.setItem("accessToken", token);
+          }
+
+          toast.success("Login Successful!");
           queryClient.invalidateQueries({ queryKey: ["chats"] });
           queryClient.invalidateQueries({ queryKey: ["users"] });
-
           router.push("/chat");
         },
-
         onError: (error: any) => {
           const message =
             error?.response?.data?.message || error?.message || "Invalid OTP";
