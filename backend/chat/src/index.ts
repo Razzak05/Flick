@@ -4,11 +4,12 @@ import cors from "cors";
 import chatRoutes from "./routes/chat.js";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
-import { app, server } from "./config/socket.js";
+import { server } from "./config/socket.js";
 
 dotenv.config();
 connectDB();
 
+const app = express();
 app.use(
   cors({
     origin: process.env.FRONTEND_URL,
