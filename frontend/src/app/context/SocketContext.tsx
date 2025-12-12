@@ -34,12 +34,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const { user } = useSelector((state: RootState) => state.auth);
   const { selectedChatId } = useSelector((state: RootState) => state.chat);
   const queryClient = useQueryClient();
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  const prevSelectedChatId = useRef<string | null>(null);
 
-  // Get token function
-  const getToken = () => {
-    // Try to get token from localStorage first
+  // Get token from localStorage or cookie
+  const getToken = (): string | null => {
+    if (typeof window === "undefined") return null;
+
+    // Try localStorage first
     const storedToken = localStorage.getItem("accessToken");
     if (storedToken) return storedToken;
 
@@ -57,12 +58,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const token = getToken();
     if (!token) {
-      console.error("No token available for socket connection");
+      console.warn("No token available for socket connection, will retry...");
+      // Don't block - socket will reconnect when token is available
       return;
     }
-
-    // Store token for socket to use
-    localStorage.setItem("accessToken", token);
 
     const socketUrl = process.env
       .NEXT_PUBLIC_BACKEND_URL_CHAT_SERVICE!.replace("/api/v1", "")
@@ -71,58 +70,49 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     const newSocket = io(`wss://${socketUrl}`, {
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
-      timeout: 10000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
       auth: {
         token: token,
       },
       query: {
         token: token,
-        userId: user._id,
       },
       withCredentials: true,
       path: "/socket.io/",
-      extraHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
+      secure: true,
+      rejectUnauthorized: false, // For development only
     });
 
     setSocket(newSocket);
 
-    // Socket event handlers
+    // Event handlers
     newSocket.on("connect", () => {
-      console.log("Socket connected:", newSocket.id);
-      reconnectAttempts.current = 0;
+      console.log("Socket connected successfully");
 
       // Join user's personal room
-      newSocket.emit("join", user._id);
-
-      // If a chat is selected, join that room
-      if (selectedChatId) {
-        newSocket.emit("joinRoom", selectedChatId);
+      if (user?._id) {
+        newSocket.emit("join", user._id);
       }
     });
 
     newSocket.on("connect_error", (error) => {
       console.error("Socket connection error:", error.message);
 
-      // Increment reconnect attempts
-      reconnectAttempts.current += 1;
-
-      if (reconnectAttempts.current >= maxReconnectAttempts) {
-        console.log("Max reconnection attempts reached");
-        // Don't disconnect - let it keep trying in background
-      }
+      // Try to get fresh token and reconnect
+      setTimeout(() => {
+        const freshToken = getToken();
+        if (freshToken) {
+          newSocket.auth = { token: freshToken };
+          newSocket.connect();
+        }
+      }, 2000);
     });
 
-    newSocket.on("disconnect", (reason) => {
-      console.log("Socket disconnected:", reason);
-    });
-
-    // Online users
     newSocket.on("onlineUsers", (users: string[]) => {
-      setOnlineUsers(users);
+      setOnlineUsers(users || []);
     });
 
     newSocket.on("user-online", (data: { userId: string }) => {
@@ -135,7 +125,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       setOnlineUsers((prev) => prev.filter((id) => id !== data.userId));
     });
 
-    // Typing indicator
     newSocket.on(
       "userTyping",
       (data: { userId: string; isTyping: boolean; roomId: string }) => {
@@ -151,7 +140,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     );
 
-    // New message
     newSocket.on("newMessage", (msg: any) => {
       const chatId = msg.chatId;
       queryClient.setQueryData(["messages", chatId], (old: any) => {
@@ -165,7 +153,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     });
 
-    // Chat updated
     newSocket.on(
       "chatUpdated",
       (data: { chatId: string; latestMessage: any; unseenCount: number }) => {
@@ -174,21 +161,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 
     return () => {
-      newSocket.off("userTyping");
-      newSocket.off("newMessage");
-      newSocket.off("chatUpdated");
       newSocket.disconnect();
     };
   }, [user?._id, queryClient]);
 
   // Handle chat room joining/leaving
   useEffect(() => {
-    if (!socket || !user?._id) return;
+    if (!socket || !user?._id || !selectedChatId) return;
 
-    // Join selected chat room
-    if (selectedChatId) {
-      socket.emit("joinRoom", selectedChatId);
+    // Leave previous chat room
+    if (
+      prevSelectedChatId.current &&
+      prevSelectedChatId.current !== selectedChatId
+    ) {
+      socket.emit("leaveRoom", prevSelectedChatId.current);
     }
+
+    // Join new chat room
+    socket.emit("joinRoom", selectedChatId);
+    prevSelectedChatId.current = selectedChatId;
 
     return () => {
       if (selectedChatId) {

@@ -1,6 +1,5 @@
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
-import axios from "axios";
 
 export interface AuthenticatedRequest extends Request {
   user?: any;
@@ -12,64 +11,49 @@ export const verifyToken = async (
   next: NextFunction
 ) => {
   try {
-    // Try multiple ways to get token
-    let token = req.cookies?.accessToken;
-    
-    // 1. Check Authorization header
-    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
+    // Get token from multiple sources
+    let token: string | undefined;
+
+    // 1. Check Authorization header first
+    if (req.headers.authorization?.startsWith("Bearer ")) {
       token = req.headers.authorization.split(" ")[1];
     }
-    
-    // 2. Check socket token (for socket.io)
-    if (!token && req.query?.token) {
+    // 2. Check cookies
+    else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    }
+    // 3. Check query parameter (for socket.io)
+    else if (req.query?.token) {
       token = req.query.token as string;
     }
 
     if (!token) {
-      return res.status(401).json({ 
-        message: "Unauthorized - No token provided" 
+      return res.status(401).json({
+        message: "Unauthorized - No token provided",
       });
     }
 
     try {
-      // Verify token with user service
-      const { data } = await axios.get(
-        `${process.env.USER_SERVICE_URL}/me`,
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            Cookie: `accessToken=${token}`
-          },
-          withCredentials: true,
-        }
-      );
+      // IMPORTANT: Use the SAME JWT_SECRET as user service
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
-      if (!data.user) {
-        return res.status(401).json({ 
-          message: "Unauthorized - Invalid token" 
-        });
-      }
+      // Set user in request
+      req.user = {
+        _id: decoded.id,
+        id: decoded.id,
+      };
 
-      req.user = data.user;
       next();
-    } catch (userServiceError: any) {
-      console.error("User service error:", userServiceError.response?.data || userServiceError.message);
-      
-      // Fallback: verify token locally
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-        req.user = { _id: decoded.id };
-        next();
-      } catch (jwtError) {
-        return res.status(401).json({
-          message: "Unauthorized - Invalid token"
-        });
-      }
+    } catch (jwtError) {
+      console.error("JWT verification error:", jwtError);
+      return res.status(403).json({
+        message: "Forbidden - Invalid or expired token",
+      });
     }
   } catch (error) {
-    console.error("Auth error:", error);
+    console.error("Auth middleware error:", error);
     return res.status(500).json({
-      message: "Authentication error"
+      message: "Authentication error",
     });
   }
 };

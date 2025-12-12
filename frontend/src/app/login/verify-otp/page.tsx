@@ -46,26 +46,21 @@ const VerifyOtp: React.FC<VerifyOtpProps> = ({ email, onBack }) => {
     verifyOtp.mutate(
       { email, otp: data.otp },
       {
-        onSuccess: (user) => {
-          dispatch(loginSuccess(user));
+        onSuccess: (response) => {
+          const { user, token } = response;
 
-          // Store token for chat service
-          const getTokenFromCookie = () => {
-            const cookies = document.cookie.split(";");
-            const tokenCookie = cookies.find((cookie) =>
-              cookie.trim().startsWith("accessToken=")
-            );
-            return tokenCookie ? tokenCookie.split("=")[1] : null;
-          };
-
-          const token = getTokenFromCookie();
           if (token) {
+            // Store token in localStorage for chat service
             localStorage.setItem("accessToken", token);
           }
 
+          dispatch(loginSuccess(user));
+
           toast.success("Login Successful!");
+
           queryClient.invalidateQueries({ queryKey: ["chats"] });
           queryClient.invalidateQueries({ queryKey: ["users"] });
+
           router.push("/chat");
         },
         onError: (error: any) => {
