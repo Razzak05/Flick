@@ -9,9 +9,17 @@ const rabbitUrl = process.env.RABBITMQ_URL!;
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpUser = process.env.SMTP_USER;
 const smtpPassword = process.env.SMTP_PASS;
+const resendApiKey = process.env.RESEND_API_KEY;
+const mailFrom = process.env.MAIL_FROM || smtpUser;
 
-if (!smtpUser || !smtpPassword) {
-  throw new Error("Missing SMTP_USER or SMTP_PASS environment variable");
+if (!resendApiKey && (!smtpUser || !smtpPassword)) {
+  throw new Error(
+    "Configure RESEND_API_KEY or both SMTP_USER and SMTP_PASS environment variables"
+  );
+}
+
+if (!mailFrom) {
+  throw new Error("Missing MAIL_FROM (or SMTP_USER) environment variable");
 }
 
 const transporter = nodemailer.createTransport({
@@ -28,14 +36,59 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const sendOtpEmail = async ({
+  to,
+  subject,
+  body,
+}: {
+  to: string;
+  subject: string;
+  body: string;
+}) => {
+  if (resendApiKey) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: mailFrom,
+        to: [to],
+        subject,
+        text: body,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Resend API error (${response.status}): ${await response.text()}`
+      );
+    }
+
+    return;
+  }
+
+  await transporter.sendMail({
+    from: mailFrom,
+    to,
+    subject,
+    text: body,
+  });
+};
+
 export const startSentOtpConsumer = async () => {
   try {
-    try {
-      await transporter.verify();
-      console.log("SMTP connection verified");
-    } catch (error) {
-      console.error("Failed to connect to SMTP server", error);
-      throw error;
+    if (resendApiKey) {
+      console.log("Using Resend email API");
+    } else {
+      try {
+        await transporter.verify();
+        console.log("SMTP connection verified");
+      } catch (error) {
+        console.error("Failed to connect to SMTP server", error);
+        throw error;
+      }
     }
 
     const connection = await amqp.connect(rabbitUrl);
@@ -52,12 +105,7 @@ export const startSentOtpConsumer = async () => {
       if (msg) {
         try {
           const { to, subject, body } = JSON.parse(msg.content.toString());
-          await transporter.sendMail({
-            from: process.env.MAIL_FROM || smtpUser,
-            to,
-            subject,
-            text: body,
-          });
+          await sendOtpEmail({ to, subject, body });
 
           console.log(`OTP mail sent to ${to}`);
           channel.ack(msg);
