@@ -4,7 +4,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const rabbitUrl = process.env.RABBITMQ_URL!;
-const smtpPort = Number(process.env.SMTP_PORT || 465);
+// Port 587 uses STARTTLS and is generally available on hosted platforms.
+// Port 465 (implicit TLS) commonly times out on platform egress networks.
+const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpUser = process.env.SMTP_USER;
 const smtpPassword = process.env.SMTP_PASS;
 
@@ -16,6 +18,10 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: smtpPort,
   secure: smtpPort === 465,
+  requireTLS: smtpPort === 587,
+  connectionTimeout: 15_000,
+  greetingTimeout: 15_000,
+  socketTimeout: 30_000,
   auth: {
     user: smtpUser,
     pass: smtpPassword,
@@ -24,7 +30,13 @@ const transporter = nodemailer.createTransport({
 
 export const startSentOtpConsumer = async () => {
   try {
-    await transporter.verify();
+    try {
+      await transporter.verify();
+      console.log("SMTP connection verified");
+    } catch (error) {
+      console.error("Failed to connect to SMTP server", error);
+      throw error;
+    }
 
     const connection = await amqp.connect(rabbitUrl);
     const channel = await connection.createChannel();
@@ -56,6 +68,6 @@ export const startSentOtpConsumer = async () => {
       }
     });
   } catch (error) {
-    console.log("Failed to start rabbitmq consumer", error);
+    console.error("Failed to start mail consumer", error);
   }
 };
