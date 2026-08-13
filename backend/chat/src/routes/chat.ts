@@ -8,7 +8,7 @@ import {
 } from "../controllers/chat.js";
 import { upload } from "../middlewares/multer.js";
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 router.post("/chat/new", verifyToken, createNewChat);
 router.get("/chat/all", verifyToken, getAllChats);

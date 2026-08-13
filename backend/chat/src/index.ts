@@ -3,8 +3,9 @@ import dotenv from "dotenv";
 import cors from "cors";
 import chatRoutes from "./routes/chat.js";
 import cookieParser from "cookie-parser";
+import http from "http";
 import connectDB from "./config/db.js";
-import { server } from "./config/socket.js";
+import { initializeSocket } from "./config/socket.js";
 
 dotenv.config();
 connectDB();
@@ -21,7 +22,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use("/api/v1", chatRoutes);
-const port = process.env.PORT;
+const server = http.createServer(app);
+initializeSocket(server);
+
+const port = process.env.PORT || 5001;
 
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);

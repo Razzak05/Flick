@@ -63,11 +63,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    const socketUrl = process.env
-      .NEXT_PUBLIC_BACKEND_URL_CHAT_SERVICE!.replace("/api/v1", "")
-      .replace(/^https?:\/\//, "");
+    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_URL_CHAT_SERVICE!.replace(
+      "/api/v1",
+      ""
+    );
 
-    const newSocket = io(`wss://${socketUrl}`, {
+    const newSocket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 10,
@@ -82,8 +83,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       },
       withCredentials: true,
       path: "/socket.io/",
-      secure: true,
-      rejectUnauthorized: false, // For development only
     });
 
     setSocket(newSocket);
