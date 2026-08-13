@@ -34,6 +34,11 @@ interface AuthenticatedRequest extends Request {
   user?: IUser;
 }
 
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const getOtpKey = (email: string) => `otp:${normalizeEmail(email)}`;
+const getOtpRateLimitKey = (email: string) =>
+  `otp:ratelimit:${normalizeEmail(email)}`;
+
 export const Register = async (
   req: Request,
   res: Response
@@ -76,7 +81,8 @@ export const requestOtp = async (
   res: Response
 ): Promise<Response | void> => {
   try {
-    const { email, password }: RequestOtp = req.body;
+    const { email: rawEmail, password }: RequestOtp = req.body;
+    const email = normalizeEmail(rawEmail);
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -89,7 +95,7 @@ export const requestOtp = async (
     }
 
     const redisClient = getRedisClient();
-    const rateLimitKey = `otp:ratelimit:${email}`;
+    const rateLimitKey = getOtpRateLimitKey(email);
     const rateLimit = await redisClient.get(rateLimitKey);
 
     if (rateLimit) {
@@ -99,7 +105,7 @@ export const requestOtp = async (
     }
 
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpKey = `otp:${email}`;
+    const otpKey = getOtpKey(email);
     await redisClient.set(otpKey, generatedOtp, { EX: 300 }); // 5 min expiry
     await redisClient.set(rateLimitKey, "true", { EX: 60 }); // 1 min limit
 
@@ -122,16 +128,18 @@ export const requestOtp = async (
 
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-    const { email, otp }: VerifyOtp = req.body;
+    const { email: rawEmail, otp }: VerifyOtp = req.body;
+    const email = normalizeEmail(rawEmail);
 
     const redisClient = getRedisClient();
-    const storedOtp = await redisClient.get(`otp:${email}`);
+    const otpKey = getOtpKey(email);
+    const storedOtp = await redisClient.get(otpKey);
 
     if (!storedOtp || storedOtp.trim() !== String(otp).trim()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    await redisClient.del(`otp:${email}`);
+    await redisClient.del(otpKey);
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -153,6 +161,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
     return res.status(200).json({
       message: "Login successful",
       user: userData,
+      // The chat service is hosted separately and cannot read this service's
+      // host-only cookie. The client uses this token for its Bearer header.
+      token,
     });
   } catch (error) {
     console.error("Verify OTP error:", error);

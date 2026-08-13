@@ -41,7 +41,7 @@ export const useVerifyOtp = () => {
       const res = await apiUser.post(`/verify-otp`, data, {
         withCredentials: true,
       });
-      return res.data.user;
+      return res.data;
     },
   });
 };

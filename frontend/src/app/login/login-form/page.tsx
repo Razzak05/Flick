@@ -33,10 +33,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onOtpSent }) => {
   });
 
   const handleSendOtp = (data: LoginFormData) => {
-    requestOtp.mutate(data, {
+    const email = data.email.trim().toLowerCase();
+
+    requestOtp.mutate({ ...data, email }, {
       onSuccess: () => {
         toast.success("OTP sent successfully!");
-        onOtpSent(data.email);
+        onOtpSent(email);
       },
       onError: (error: any) => {
         toast.error(error.message || "Failed to send OTP");
