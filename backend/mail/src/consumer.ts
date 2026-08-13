@@ -111,7 +111,12 @@ export const startSentOtpConsumer = async () => {
           channel.ack(msg);
         } catch (error) {
           console.log("Failed to send otp: ", error);
-          channel.nack(msg, false, true);
+
+          // A Resend 4xx response is a permanent configuration/validation
+          // failure. Requeuing it causes a hot loop and floods the logs.
+          const isPermanentResendError =
+            error instanceof Error && /Resend API error \(4\d\d\)/.test(error.message);
+          channel.nack(msg, false, !isPermanentResendError);
         }
       }
     });
