@@ -115,7 +115,17 @@ export const requestOtp = async (
       body: `Your OTP is ${generatedOtp}. It's valid for 5 minutes.`,
     };
 
-    await publishToQueue("send-otp", message);
+    try {
+      await publishToQueue("send-otp", message);
+    } catch (error) {
+      // Do not leave an unusable OTP in Redis when email delivery was never
+      // queued successfully.
+      await Promise.all([
+        redisClient.del(otpKey),
+        redisClient.del(rateLimitKey),
+      ]);
+      throw error;
+    }
 
     return res.status(200).json({
       message: "OTP sent to your email. Please verify to continue.",

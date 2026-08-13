@@ -15,8 +15,7 @@ export const connectRabbitMQ = async () => {
 
 export const publishToQueue = async (queueName: string, message: any) => {
   if (!channel) {
-    console.log("Rabbitmq channel is not initialized");
-    return;
+    throw new Error("RabbitMQ channel is not initialized");
   }
 
   await channel.assertQueue(queueName, { durable: true });
