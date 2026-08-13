@@ -21,7 +21,6 @@ export const createApi = (baseURL: string) => {
       if (error.response?.status === 401) {
         console.log("401 detected, triggering logout");
         store.dispatch(logout());
-        window.location.href = "/login";
       }
       return Promise.reject(error);
     }

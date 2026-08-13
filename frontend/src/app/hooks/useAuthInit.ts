@@ -3,9 +3,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
-import { loginSuccess, logout } from "../redux/slices/userSlice";
+import {
+  authInitialized,
+  loginSuccess,
+  logout,
+} from "../redux/slices/userSlice";
 import axios from "axios";
-import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 // Helper to get token from cookie
@@ -21,8 +24,6 @@ const getTokenFromCookie = (): string | null => {
 
 export function useAuthInit() {
   const dispatch = useDispatch();
-  const pathname = usePathname();
-  const router = useRouter();
 
   // Store token in localStorage when available
   useEffect(() => {
@@ -56,6 +57,7 @@ export function useAuthInit() {
     },
     retry: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   // Handle query state changes
@@ -69,22 +71,22 @@ export function useAuthInit() {
         localStorage.setItem("accessToken", token);
       }
 
-      if (pathname === "/login" || pathname === "/register") {
-        router.replace("/chat");
-      }
     }
-  }, [query.data, dispatch, pathname, router]);
+  }, [query.data, dispatch]);
 
   useEffect(() => {
     if (query.isError) {
       dispatch(logout());
       localStorage.removeItem("accessToken");
 
-      if (pathname !== "/login" && pathname !== "/register") {
-        router.replace("/login");
-      }
     }
-  }, [query.isError, dispatch, pathname, router]);
+  }, [query.isError, dispatch]);
+
+  useEffect(() => {
+    if (!query.isLoading) {
+      dispatch(authInitialized());
+    }
+  }, [dispatch, query.isLoading]);
 
   return { isLoading: query.isLoading };
 }

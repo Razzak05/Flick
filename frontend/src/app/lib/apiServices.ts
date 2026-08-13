@@ -54,10 +54,8 @@ export const createApi = (baseURL: string) => {
         localStorage.removeItem("accessToken");
         // Dispatch logout
         store.dispatch(logout());
-        // Redirect to login
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
-        }
+        // Protect handles navigation after this state update. Redirecting here
+        // causes a full page reload for every unauthorized request.
       }
       return Promise.reject(error);
     }

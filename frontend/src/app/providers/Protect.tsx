@@ -6,19 +6,22 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 export default function Protect({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, isInitialized } = useSelector(
+    (state: RootState) => state.auth
+  );
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    if (!isInitialized) return;
+
     const publicRoutes = ["/login", "/register"];
     if (!isAuthenticated && !publicRoutes.includes(pathname)) {
-      router.push("/login");
+      router.replace("/login");
+    } else if (isAuthenticated && publicRoutes.includes(pathname)) {
+      router.replace("/chat");
     }
-    if (isAuthenticated && publicRoutes.includes(pathname)) {
-      router.push("/chat");
-    }
-  }, [isAuthenticated, pathname, router]);
+  }, [isAuthenticated, isInitialized, pathname, router]);
 
   return <>{children}</>;
 }
