@@ -7,16 +7,9 @@ export const registerSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-// Request OTP schema
-export const requestOtpSchema = z.object({
+export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
-});
-
-// Verify OTP schema
-export const verifyOtpSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  otp: z.string().length(6, "OTP must be exactly 6 digits"),
 });
 
 // Update password schema
@@ -27,6 +20,5 @@ export const updatePasswordSchema = z.object({
 
 // Export types
 export type RegisterInput = z.infer<typeof registerSchema>;
-export type RequestOtpInput = z.infer<typeof requestOtpSchema>;
-export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;

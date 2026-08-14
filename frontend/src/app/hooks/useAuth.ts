@@ -6,14 +6,9 @@ import { logout } from "../redux/slices/userSlice";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 
-interface RequestOtpPayload {
+interface LoginPayload {
   email: string;
   password: string;
-}
-
-interface VerifyOtpPayload {
-  email: string;
-  otp: string;
 }
 
 interface RegisterPayload {
@@ -22,23 +17,10 @@ interface RegisterPayload {
   password: string;
 }
 
-// Request OTP
-export const useRequestOtp = () => {
+export const useLogin = () => {
   return useMutation({
-    mutationFn: async (data: RequestOtpPayload) => {
-      const res = await apiUser.post(`/request-otp`, data, {
-        withCredentials: true,
-      });
-      return res.data;
-    },
-  });
-};
-
-// Verify OTP
-export const useVerifyOtp = () => {
-  return useMutation({
-    mutationFn: async (data: VerifyOtpPayload) => {
-      const res = await apiUser.post(`/verify-otp`, data, {
+    mutationFn: async (data: LoginPayload) => {
+      const res = await apiUser.post(`/login`, data, {
         withCredentials: true,
       });
       return res.data;

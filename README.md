@@ -1,13 +1,11 @@
 # Flick
 
-Flick is a full-stack, real-time one-to-one messaging application. It uses OTP-based sign-in, live Socket.IO updates, unread-message tracking, typing and presence indicators, and optional image messages stored in Cloudinary.
+Flick is a full-stack, real-time one-to-one messaging application with password-based sign-in, live Socket.IO updates, unread-message tracking, typing and presence indicators, and optional image messages stored in Cloudinary.
 
 The application is split into independently runnable services:
 
 ```text
-Next.js client --> User service --> Redis (OTP storage and rate limiting)
-       |                |
-       |                +--> RabbitMQ --> Mail service --> SMTP
+Next.js client --> User service --> MongoDB
        |
        +---------------> Chat service --> MongoDB / Cloudinary
                            |
@@ -17,8 +15,7 @@ Next.js client --> User service --> Redis (OTP storage and rate limiting)
 ## Features
 
 - Account registration with hashed passwords
-- Password-validated, email OTP login
-- OTP expiry (five minutes) and per-email request throttling
+- Email and password login
 - JWT/cookie-protected user and chat APIs
 - One-to-one chat creation and chat history
 - Real-time messages, online/offline presence, typing indicators, and sidebar updates
@@ -30,18 +27,14 @@ Next.js client --> User service --> Redis (OTP storage and rate limiting)
 | Area | Technologies |
 | --- | --- |
 | Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS, Redux Toolkit, React Query, Socket.IO Client |
-| User service | Express 5, MongoDB/Mongoose, Redis, RabbitMQ, JWT, Zod |
+| User service | Express 5, MongoDB/Mongoose, JWT, Zod |
 | Chat service | Express 5, MongoDB/Mongoose, Socket.IO, Cloudinary, Multer |
-| Mail service | Express 5, RabbitMQ, Nodemailer |
 
 ## Prerequisites
 
 - Node.js 20 or newer
 - MongoDB
-- Redis
-- RabbitMQ
 - A Cloudinary account for image uploads
-- SMTP credentials for sending OTP messages
 
 ## Installation
 
@@ -51,7 +44,6 @@ Install dependencies in every runnable package:
 cd frontend && npm install
 cd ../backend/user && npm install
 cd ../chat && npm install
-cd ../mail && npm install
 ```
 
 > The repository root and `backend/` directories do not currently define workspace scripts; run commands from each service directory.
@@ -66,8 +58,6 @@ Create a `.env` file in each directory below. Never commit these files.
 PORT=5000
 FRONTEND_URL=http://localhost:3000
 MONGODB_URI=mongodb://127.0.0.1:27017
-REDIS_URI=redis://127.0.0.1:6379
-RABBITMQ_URL=amqp://localhost
 JWT_SECRET=replace-with-a-long-random-secret
 ```
 
@@ -84,17 +74,6 @@ CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 ```
 
-### `backend/mail/.env`
-
-```env
-PORT=5002
-RABBITMQ_URL=amqp://localhost
-USER=your-smtp-username
-PASSWORD=your-smtp-password-or-app-password
-```
-
-The mail consumer is configured for Gmail's SMTP host on port 465. Use a Gmail app password or adapt `backend/mail/src/consumer.ts` for a different provider.
-
 ### `frontend/.env.local`
 
 ```env
@@ -106,7 +85,7 @@ The current socket client constructs a secure WebSocket (`wss://`) URL. For loca
 
 ## Run locally
 
-Start the backing services (MongoDB, Redis, and RabbitMQ), then open four terminals:
+Start MongoDB, then open three terminals:
 
 ```bash
 # Terminal 1
@@ -118,10 +97,6 @@ cd backend/chat
 npm run dev
 
 # Terminal 3
-cd backend/mail
-npm run dev
-
-# Terminal 4
 cd frontend
 npm run dev
 ```
@@ -137,8 +112,7 @@ All endpoints below are prefixed with `/api/v1`.
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `POST` | `/register` | Create a user |
-| `POST` | `/request-otp` | Validate credentials and queue a login OTP email |
-| `POST` | `/verify-otp` | Verify OTP and establish an authenticated session |
+| `POST` | `/login` | Authenticate with email and password |
 | `PUT` | `/update-password` | Change the authenticated user's password |
 | `POST` | `/logout` | End the authenticated session |
 | `GET` | `/me` | Retrieve the authenticated profile |
@@ -164,14 +138,13 @@ The chat service exposes Socket.IO for authenticated clients. It emits `newMessa
 
 ```text
 frontend/              Next.js web client
-backend/user/          Authentication, profiles, OTP producer
+backend/user/          Authentication and profiles
 backend/chat/          Chat/message API, uploads, Socket.IO server
-backend/mail/          RabbitMQ consumer that sends OTP email
 ```
 
 ## Available scripts
 
-Run these inside `frontend`, `backend/user`, `backend/chat`, or `backend/mail` as applicable:
+Run these inside `frontend`, `backend/user`, or `backend/chat` as applicable:
 
 ```bash
 npm run dev      # TypeScript watch + Nodemon for backend; Next.js dev server for frontend
@@ -189,7 +162,7 @@ npm run lint
 
 - Use strong, unique secrets in production and never expose `.env` files.
 - Configure HTTPS and a secure frontend origin before deploying, since authentication cookies use `Secure` and `SameSite=None`.
-- Restrict CORS to the deployed frontend URL and use managed credentials for MongoDB, Redis, RabbitMQ, Cloudinary, and SMTP.
+- Restrict CORS to the deployed frontend URL and use managed credentials for MongoDB and Cloudinary.
 
 ## License
 

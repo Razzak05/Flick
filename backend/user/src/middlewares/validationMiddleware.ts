@@ -2,8 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { ZodType, ZodError } from "zod";
 import {
   registerSchema,
-  requestOtpSchema,
-  verifyOtpSchema,
+  loginSchema,
   updatePasswordSchema,
 } from "../utils/validationSchema.js";
 
@@ -36,6 +35,5 @@ export const validateRequest = (schema: ZodType<any>) => {
 
 // Individual validation functions
 export const validateRegister = validateRequest(registerSchema);
-export const validateRequestOtp = validateRequest(requestOtpSchema);
-export const validateVerifyOtp = validateRequest(verifyOtpSchema);
+export const validateLogin = validateRequest(loginSchema);
 export const validateUpdatePassword = validateRequest(updatePasswordSchema);

@@ -6,22 +6,19 @@ import {
   myProfile,
   getAllUsers,
   getUserById,
-  requestOtp,
-  verifyOtp,
+  Login,
 } from "../controller/user.js";
 import { verifyToken } from "../middlewares/verifyToken.js";
 import {
   validateRegister,
-  validateRequestOtp,
+  validateLogin,
   validateUpdatePassword,
-  validateVerifyOtp,
 } from "../middlewares/validationMiddleware.js";
 
 const router = express.Router();
 
 router.post("/register", validateRegister, Register);
-router.post("/request-otp", validateRequestOtp, requestOtp);
-router.post("/verify-otp", validateVerifyOtp, verifyOtp);
+router.post("/login", validateLogin, Login);
 router.put(
   "/update-password",
   validateUpdatePassword,

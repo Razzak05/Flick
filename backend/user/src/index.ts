@@ -3,9 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
-import { connectRedis } from "./config/redis.js";
 import userRoutes from "./routes/user.js";
-import { connectRabbitMQ } from "./config/rabbitmq.js";
 
 dotenv.config();
 
@@ -22,8 +20,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 connectDB();
-connectRedis();
-connectRabbitMQ();
 
 //middlewares
 app.use(express.json());

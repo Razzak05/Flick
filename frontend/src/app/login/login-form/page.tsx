@@ -8,7 +8,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { useRequestOtp } from "../../hooks/useAuth";
+import { useLogin } from "../../hooks/useAuth";
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "../../redux/slices/userSlice";
+import { useRouter } from "next/navigation";
 
 // Zod schema
 const loginSchema = z.object({
@@ -17,12 +20,10 @@ const loginSchema = z.object({
 });
 type LoginFormData = z.infer<typeof loginSchema>;
 
-interface LoginFormProps {
-  onOtpSent: (email: string) => void;
-}
-
-const LoginForm: React.FC<LoginFormProps> = ({ onOtpSent }) => {
-  const requestOtp = useRequestOtp();
+const LoginForm = () => {
+  const login = useLogin();
+  const dispatch = useDispatch();
+  const router = useRouter();
 
   const {
     register,
@@ -32,16 +33,18 @@ const LoginForm: React.FC<LoginFormProps> = ({ onOtpSent }) => {
     resolver: zodResolver(loginSchema),
   });
 
-  const handleSendOtp = (data: LoginFormData) => {
+  const handleLogin = (data: LoginFormData) => {
     const email = data.email.trim().toLowerCase();
 
-    requestOtp.mutate({ ...data, email }, {
-      onSuccess: () => {
-        toast.success("OTP sent successfully!");
-        onOtpSent(email);
+    login.mutate({ ...data, email }, {
+      onSuccess: ({ user, token }) => {
+        localStorage.setItem("accessToken", token);
+        dispatch(loginSuccess(user));
+        toast.success("Login successful!");
+        router.replace("/chat");
       },
       onError: (error: any) => {
-        toast.error(error.message || "Failed to send OTP");
+        toast.error(error.response?.data?.message || "Login failed");
       },
     });
   };
@@ -63,7 +66,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onOtpSent }) => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit(handleSendOtp)} className="space-y-6">
+        <form onSubmit={handleSubmit(handleLogin)} className="space-y-6">
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -102,10 +105,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onOtpSent }) => {
           {/* Submit */}
           <button
             type="submit"
-            disabled={requestOtp.isPending}
+            disabled={login.isPending}
             className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg disabled:opacity-50"
           >
-            {requestOtp.isPending ? "Sending OTP..." : "Send OTP"}
+            {login.isPending ? "Logging in..." : "Login"}
           </button>
         </form>
 

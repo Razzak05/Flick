@@ -2,8 +2,6 @@ import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import User, { type IUser } from "../model/User.js";
 import bcrypt from "bcryptjs";
-import { getRedisClient } from "../config/redis.js";
-import { publishToQueue } from "../config/rabbitmq.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -14,14 +12,9 @@ interface RegisterBody {
   password: string;
 }
 
-interface RequestOtp {
+interface LoginBody {
   email: string;
   password: string;
-}
-
-interface VerifyOtp {
-  email: string;
-  otp: string;
 }
 
 interface UpdatePasswordBody {
@@ -35,16 +28,15 @@ interface AuthenticatedRequest extends Request {
 }
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
-const getOtpKey = (email: string) => `otp:${normalizeEmail(email)}`;
-const getOtpRateLimitKey = (email: string) =>
-  `otp:ratelimit:${normalizeEmail(email)}`;
 
 export const Register = async (
   req: Request,
   res: Response
 ): Promise<Response | void> => {
   try {
-    const { name, email, password }: RegisterBody = req.body;
+    const { name, email: rawEmail, password }: RegisterBody = req.body;
+    const email = normalizeEmail(rawEmail);
+
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "All fields are required!",
@@ -76,12 +68,12 @@ export const Register = async (
   }
 };
 
-export const requestOtp = async (
+export const Login = async (
   req: Request,
   res: Response
 ): Promise<Response | void> => {
   try {
-    const { email: rawEmail, password }: RequestOtp = req.body;
+    const { email: rawEmail, password }: LoginBody = req.body;
     const email = normalizeEmail(rawEmail);
 
     const user = await User.findOne({ email });
@@ -93,65 +85,6 @@ export const requestOtp = async (
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
-
-    const redisClient = getRedisClient();
-    const rateLimitKey = getOtpRateLimitKey(email);
-    const rateLimit = await redisClient.get(rateLimitKey);
-
-    if (rateLimit) {
-      return res.status(429).json({
-        message: "Too many requests. Please wait before requesting new OTP",
-      });
-    }
-
-    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpKey = getOtpKey(email);
-    await redisClient.set(otpKey, generatedOtp, { EX: 300 }); // 5 min expiry
-    await redisClient.set(rateLimitKey, "true", { EX: 60 }); // 1 min limit
-
-    const message = {
-      to: email,
-      subject: "Your OTP Code",
-      body: `Your OTP is ${generatedOtp}. It's valid for 5 minutes.`,
-    };
-
-    try {
-      await publishToQueue("send-otp", message);
-    } catch (error) {
-      // Do not leave an unusable OTP in Redis when email delivery was never
-      // queued successfully.
-      await Promise.all([
-        redisClient.del(otpKey),
-        redisClient.del(rateLimitKey),
-      ]);
-      throw error;
-    }
-
-    return res.status(200).json({
-      message: "OTP sent to your email. Please verify to continue.",
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-export const verifyOtp = async (req: Request, res: Response) => {
-  try {
-    const { email: rawEmail, otp }: VerifyOtp = req.body;
-    const email = normalizeEmail(rawEmail);
-
-    const redisClient = getRedisClient();
-    const otpKey = getOtpKey(email);
-    const storedOtp = await redisClient.get(otpKey);
-
-    if (!storedOtp || storedOtp.trim() !== String(otp).trim()) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
-
-    await redisClient.del(otpKey);
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET!, {
       expiresIn: "1d",
@@ -176,7 +109,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       token,
     });
   } catch (error) {
-    console.error("Verify OTP error:", error);
+    console.error("Login error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
